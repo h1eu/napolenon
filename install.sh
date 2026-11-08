@@ -33,7 +33,7 @@ while IFS= read -r -d '' f; do
   fi
   mkdir -p "$(dirname "$dst")"
   cp "$f" "$dst"; copied=$((copied+1))
-done < <(find "$SRC/.claude" -type f -not -path "*/__pycache__/*" -not -name "*.pyc" -print0)
+done < <(find "$SRC/.claude" -type f -not -path "*/__pycache__/*" -not -name "*.pyc" -not -name ".DS_Store" -print0)
 
 # 2. settings.json: không bao giờ đè
 if [ -e "$TARGET/.claude/settings.json" ]; then
