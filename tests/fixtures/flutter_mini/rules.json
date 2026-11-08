@@ -1,0 +1,8 @@
+{
+  "rules": [
+    {"id": "no-flutter-in-domain", "type": "forbidden-import", "in": "lib/domain/**", "forbid": ["package:flutter/**"]},
+    {"id": "bloc-suffix", "type": "naming", "in": "lib/**/*_bloc.dart", "class_regex": ".*Bloc$"},
+    {"id": "repo-in-data", "type": "location", "pattern": "*_repository.dart", "must_be_under": "lib/data/"},
+    {"id": "max-400", "type": "max-lines", "in": "lib/**", "max": 400}
+  ]
+}

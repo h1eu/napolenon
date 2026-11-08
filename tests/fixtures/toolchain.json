@@ -1,0 +1,8 @@
+{
+  "by_ext": {
+    ".dart": {"format": "echo FMT {file}", "analyze": "echo ANA {file}"},
+    ".kt":   {"format": "sh -c 'echo LOI; exit 3'", "analyze": "echo ANA {file}"}
+  },
+  "test": "echo TEST",
+  "build": "echo BUILD"
+}

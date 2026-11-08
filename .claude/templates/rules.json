@@ -1,0 +1,54 @@
+{
+  "_doc": "Quy ước máy đọc được cho conform.py. Glob dùng fnmatch, '*' và '**' đều khớp qua '/'. Xoá các rule mẫu không dùng.",
+  "rules": [
+    {
+      "id": "no-ui-in-domain",
+      "type": "forbidden-import",
+      "in": "<lib>/**/domain/**",
+      "forbid": ["package:flutter/**", "androidx.compose.**", "SwiftUI"]
+    },
+    {
+      "id": "no-data-from-presentation",
+      "type": "forbidden-import",
+      "in": "<lib>/**/presentation/**",
+      "forbid": ["*/data/*"]
+    },
+    {
+      "id": "state-holder-suffix",
+      "type": "naming",
+      "in": "<lib>/**/*_bloc.dart",
+      "class_regex": ".*(Bloc|Event|State)$"
+    },
+    {
+      "id": "repo-impl-in-data",
+      "type": "location",
+      "pattern": "*_repository_impl.dart",
+      "must_be_under": "<lib>/"
+    },
+    {
+      "id": "max-400-lines",
+      "type": "max-lines",
+      "in": "<lib>/**",
+      "max": 400
+    },
+    {
+      "id": "few-comments",
+      "type": "max-comment-ratio",
+      "in": "<lib>/**",
+      "max_ratio": 0.15,
+      "min_lines": 20
+    },
+    {
+      "id": "manager-suffix",
+      "type": "naming",
+      "in": "<lib>/**/*_manager.dart",
+      "class_regex": ".*(Manager|Runtime)$"
+    },
+    {
+      "id": "manager-not-in-presentation",
+      "type": "location",
+      "pattern": "*_manager.dart",
+      "must_be_under": "<lib>/core/"
+    }
+  ]
+}

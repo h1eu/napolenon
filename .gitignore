@@ -1,0 +1,5 @@
+.codegraph/
+reports/
+.superpowers/
+__pycache__/
+*.pyc
