@@ -16,6 +16,7 @@ description: Napoleon hoạt động thế nào, phân vai với superpowers, fi
 | Trước khi nói "xong" | superpowers `verification-before-completion` |
 | Chốt kiến trúc, quy ước của **dự án này** | napoleon `/start-build`, skill `architecture-interview` |
 | Sinh rule/skill/agent riêng dự án | napoleon `/setup-agents` |
+| Tài liệu nguồn đổi sau khi đã có harness | napoleon `/sync-docs`, tool `sources.py` |
 | Trạng thái feature/task xuyên phiên | napoleon `state.py` |
 | Truy vấn code | codegraph MCP, skill `using-codegraph` |
 | Kiểm tra quy ước, phụ thuộc, báo cáo | napoleon `conform.py`, `audit.py`, `report.py` |
@@ -48,3 +49,4 @@ Napoleon không viết lại quy trình superpowers. Ở mỗi bước của `/f
 - Bước verify: toolchain (format/analyze/test/build) → `conform.py` → `audit.py` → agent `verifier`.
 - Bước done: `codegraph sync`, `state.py session note`.
 - Muốn số liệu: `report.py`. Không gõ tay.
+- `docs/sources/` đổi: `sources.py diff` → `/sync-docs` hỏi từng điểm lệch → `state.py sources mark`. Không tự sửa instructions/spec theo tài liệu mới mà chưa hỏi.

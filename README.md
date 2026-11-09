@@ -76,7 +76,7 @@ cd /đường/dẫn/dự/án && codegraph init
 /feature <tên>
 ```
 
-**Mỗi ngày**: mở Claude Code → hook in 5 dòng "đang ở đâu" → `/feature <tên>` làm bước kế tiếp. Quên thì `/status`. Muốn số liệu thì `/report`. Thấy lỗi lặp thì `/retro`.
+**Mỗi ngày**: mở Claude Code → hook in 5 dòng "đang ở đâu" → `/feature <tên>` làm bước kế tiếp. Quên thì `/status`. Muốn số liệu thì `/report`. Thấy lỗi lặp thì `/retro`. Tài liệu trong `docs/sources/` đổi thì `/sync-docs`.
 
 Kịch bản chạy tay đầy đủ 15 phút: [tests/smoke.md](tests/smoke.md).
 
@@ -91,6 +91,7 @@ Kịch bản chạy tay đầy đủ 15 phút: [tests/smoke.md](tests/smoke.md).
 | `/status` | `state.py show` + journal | Không suy luận thêm |
 | `/report` | `report.py` | `reports/roadmap.html`, mọi số có ghi nguồn |
 | `/retro` | Tìm lỗi lặp ≥ 2 lần | Mỗi lỗi một chỗ chặn: test → rules.json → hook → rule → chữ |
+| `/sync-docs [feature]` | `docs/sources/` đổi sau khi đã có harness: `sources.py diff` so với mốc cuối (sha256 + git diff), liệt kê điểm lệch với `instructions/` và spec, hỏi bạn quyết từng điểm | Sửa đúng dòng lệch, ADR khi giữ/đổi kiến trúc, task sửa cho feature đang build, mốc mới trong `state.json` |
 
 ## Vòng đời một feature
 
@@ -141,7 +142,7 @@ Trong repo này:
 .claude/
 ├── CLAUDE.md                 lõi, luôn nạp
 ├── settings.json             3 hook
-├── commands/                 7 lệnh
+├── commands/                 8 lệnh
 ├── skills/
 │   ├── napoleon-core/        phân vai, file ở đâu, tool nào khi nào
 │   ├── architecture-interview/   phỏng vấn + references/ (clean, MVI, BLoC, MVVM, DI, navigation, testing)
@@ -151,7 +152,7 @@ Trong repo này:
 │   ├── verifying/            3 lớp
 │   └── using-codegraph/      câu hỏi → tool
 ├── agents/verifier.md
-├── tools/                    state.py conform.py audit.py report.py imports.py + 3 hook .sh
+├── tools/                    state.py conform.py audit.py report.py sources.py imports.py + 3 hook .sh
 ├── templates/                khuôn cho mọi file sinh ra
 ├── instructions/             (trống) /start-build sinh
 └── rules/                    (trống) /setup-agents sinh

@@ -11,6 +11,6 @@ Dùng skill `architecture-interview`. Đầu vào: $ARGUMENTS
 5. Sinh từ `.claude/templates/`: `project.md`, `architecture.md`, `conventions.md`, `module-map.md`, `rules.json`, `toolchain.json` → `.claude/instructions/`. Không để placeholder `<...>` sót lại.
 6. `python3 .claude/tools/conform.py` → phải chạy được, 0 file quét là glob sai, sửa.
 7. Khung thư mục rỗng theo `architecture.md`: `mkdir -p` + `.gitkeep`. Không tạo file code.
-8. `docs/napoleon/features.md` từ tài liệu (một dòng/feature, tên `[a-z0-9-]`). `python3 .claude/tools/state.py init`.
+8. `docs/napoleon/features.md` từ tài liệu (một dòng/feature, tên `[a-z0-9-]`). `python3 .claude/tools/state.py init` rồi `python3 .claude/tools/state.py sources mark` (mốc để `/sync-docs` so sau này).
 9. `codegraph status`; chưa có → `codegraph init`.
 10. Tóm tắt ≤ 8 dòng những gì đã chốt, rồi: "Chạy `/setup-agents` để sinh rule/skill riêng cho dự án."

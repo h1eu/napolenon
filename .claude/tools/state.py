@@ -7,17 +7,22 @@
   state.py [--root DIR] task add <feature> "<title>" [--files a,b] | start|done <feature> <id>
   state.py [--root DIR] task block <feature> <id> "<lý do>"
   state.py [--root DIR] session note <feature> "<ghi chú>"
+  state.py [--root DIR] sources mark | show        # mốc đồng bộ docs/sources/ (dùng bởi sources.py)
 """
 import argparse
+import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
 STATE_REL = Path("docs/napoleon/state.json")
 JOURNAL_REL = Path("docs/napoleon/journal.md")
+SOURCES_REL = Path("docs/sources")
+SOURCES_SKIP = {".gitkeep", ".DS_Store"}
 STEPS = ["spec", "plan", "build", "verify", "done"]
 TASK_STATUS = ["todo", "in_progress", "done", "blocked"]
 NAME_RE = re.compile(r"^[a-z0-9-]+$")
@@ -59,7 +64,33 @@ def append_journal(root, feature, note):
 
 
 def empty_state():
-    return {"version": 1, "features": {}, "last_session": {"feature": "", "note": "", "at": ""}}
+    return {"version": 1, "features": {}, "last_session": {"feature": "", "note": "", "at": ""},
+            "sources": empty_sources()}
+
+
+def empty_sources():
+    return {"commit": "", "manifest": {}, "at": ""}
+
+
+def sources_manifest(root):
+    """path tương đối → sha256, cho mọi file trong docs/sources/."""
+    base = Path(root) / SOURCES_REL
+    out = {}
+    if not base.is_dir():
+        return out
+    for f in sorted(base.rglob("*")):
+        if not f.is_file() or f.name in SOURCES_SKIP:
+            continue
+        out[f.relative_to(root).as_posix()] = hashlib.sha256(f.read_bytes()).hexdigest()
+    return out
+
+
+def git_head(root):
+    try:
+        r = subprocess.run(["git", "-C", str(root), "rev-parse", "HEAD"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return r.stdout.strip() if r.returncode == 0 else ""
 
 
 def get_feature(state, name):
@@ -170,6 +201,18 @@ def cmd_session(root, a):
     append_journal(root, a.feature, a.note)
 
 
+def cmd_sources(root, a):
+    state = load_state(root)
+    src = state.get("sources") or empty_sources()
+    if a.action == "show":
+        print(json.dumps(src, ensure_ascii=False, indent=2))
+        return
+    manifest = sources_manifest(root)
+    state["sources"] = {"commit": git_head(root), "manifest": manifest, "at": now()}
+    save_state(root, state)
+    print(f"đã đánh mốc {len(manifest)} file trong {SOURCES_REL}")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--root", default=".")
@@ -196,8 +239,12 @@ def main(argv=None):
     se = sub.add_parser("session").add_subparsers(dest="action", required=True)
     x = se.add_parser("note"); x.add_argument("feature"); x.add_argument("note")
 
+    so = sub.add_parser("sources").add_subparsers(dest="action", required=True)
+    so.add_parser("mark"); so.add_parser("show")
+
     a = p.parse_args(argv)
-    fn = {"init": cmd_init, "show": cmd_show, "feature": cmd_feature, "task": cmd_task, "session": cmd_session}[a.cmd]
+    fn = {"init": cmd_init, "show": cmd_show, "feature": cmd_feature, "task": cmd_task, "session": cmd_session,
+          "sources": cmd_sources}[a.cmd]
     fn(a.root, a)
 
 

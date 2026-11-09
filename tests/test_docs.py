@@ -48,7 +48,7 @@ class DocsTest(unittest.TestCase):
     def test_every_command_has_description(self):
         cmds = sorted(C.glob("commands/*.md"))
         self.assertEqual({c.stem for c in cmds},
-                         {"map-codebase", "start-build", "setup-agents", "feature", "status", "report", "retro"})
+                         {"map-codebase", "start-build", "setup-agents", "feature", "status", "report", "retro", "sync-docs"})
         for c in cmds:
             fm = frontmatter(c)
             self.assertIsNotNone(fm, c)

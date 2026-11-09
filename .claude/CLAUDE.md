@@ -33,11 +33,13 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 | `/status` | Mở phiên mới, muốn biết đang ở đâu. |
 | `/report` | Sinh `reports/roadmap.html`. |
 | `/retro` | Thấy lỗi lặp lại. Biến nó thành test/rule/hook. |
+| `/sync-docs [feature]` | Tài liệu trong `docs/sources/` đổi. So với mốc cuối, hỏi bạn quyết từng điểm lệch. |
 
 ## Tool (chạy từ gốc dự án)
 - `python3 .claude/tools/state.py --help` — trạng thái feature/task.
 - `python3 .claude/tools/conform.py` — soi code theo `instructions/rules.json`.
 - `python3 .claude/tools/audit.py` — cycles, ranh giới module, dep ngoài, file mồ côi.
+- `python3 .claude/tools/sources.py diff` — `docs/sources/` đổi gì so với mốc, harness trích dẫn ở đâu.
 - `python3 .claude/tools/report.py` — roadmap.html.
 
 ## Khi viết agent/skill/rule cho dự án
