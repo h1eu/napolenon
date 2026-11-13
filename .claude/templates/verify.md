@@ -5,7 +5,7 @@ Ngày: <YYYY-MM-DD>
 ## Máy
 - [ ] format — `<lệnh>` → <kết quả>
 - [ ] analyze — `<lệnh>` → <kết quả>
-- [ ] test — `<lệnh>` → <N pass>
+- [ ] test (toàn bộ) — `<lệnh>` → <N pass>
 - [ ] build — `<lệnh>` → <ok>
 - [ ] conform.py → <0 vi phạm>
 - [ ] audit.py → <cycles: n, vi phạm ranh giới: n>
@@ -20,5 +20,6 @@ Ngày: <YYYY-MM-DD>
 - [ ] API ngoài đã tra doc
 
 ## Người
+Không chặn `done`. Tick sau bằng `state.py human <tên> tick <n>`.
 - [ ] <việc cụ thể 1, vd: màn hình login hiển thị đúng trên iPhone SE>
 - [ ] <việc cụ thể 2>

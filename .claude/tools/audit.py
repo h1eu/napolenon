@@ -21,15 +21,17 @@ from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from cgdb import DB_REL, open_db  # noqa: E402
+from globs import excluded_globs, is_excluded  # noqa: E402
 from imports import LANG_BY_EXT, read_imports  # noqa: E402
 
-DB_REL = Path(".codegraph/codegraph.db")
 MODULE_MAP_REL = Path(".claude/instructions/module-map.md")
 SKIP_DIRS = {".git", ".codegraph", ".claude", "build", "node_modules", ".dart_tool", ".gradle", ".idea", "test", "tests",
              ".agents", ".ai", ".superpowers", "raw"}
 # Ngôn ngữ mà "không ai import" không có nghĩa là mồ côi khi scan: Kotlin cùng package không cần import, Swift cùng module không cần import
 NO_ORPHAN_BY_IMPORT = {"kotlin": "Kotlin cùng package không cần import → mồ côi không tính từ scan, chỉ tin codegraph",
                        "swift": "Swift cùng module không cần import → mồ côi không tính từ scan, chỉ tin codegraph"}
+SKIP_PREFIXES = ("docs/sources/",)        # tài liệu người dùng đưa, không phải code dự án
 ENTRY_NAMES = {"main.dart", "main.py", "Main.kt", "App.swift", "main.swift", "index.ts", "index.tsx", "index.js",
                "main.ts", "main.js", "main.kt", "App.kt", "MainActivity.kt", "MainApplication.kt"}
 
@@ -44,10 +46,14 @@ KT_DECL = re.compile(r"^\s*(?:(?:public|internal|private|open|abstract|sealed|da
 
 # ---------- file ----------
 
-def source_files(root):
+def in_scope(rel, skip=SKIP_DIRS):
+    return not (set(Path(rel).parts[:-1]) & skip) and not rel.startswith(SKIP_PREFIXES)
+
+
+def source_files(root, skip=SKIP_DIRS):
     out = []
     for p in root.rglob("*"):
-        if p.is_file() and p.suffix in LANG_BY_EXT and not (set(p.relative_to(root).parts[:-1]) & SKIP_DIRS):
+        if p.is_file() and p.suffix in LANG_BY_EXT and in_scope(p.relative_to(root).as_posix(), skip):
             out.append(p.relative_to(root).as_posix())
     return sorted(out)
 
@@ -152,9 +158,9 @@ class ScanIndex:
         return None
 
 
-def edges_from_scan(root):
+def edges_from_scan(root, skip=SKIP_DIRS):
     """Trả về (files, edges, external, notes, unreliable_langs)."""
-    files = source_files(root)
+    files = source_files(root, skip)
     idx = ScanIndex(root, files)
     edges, external = [], defaultdict(int)
     seen, resolved_langs = defaultdict(int), set()
@@ -192,67 +198,73 @@ def _norm_path(root, pth):
     return Path(pth).as_posix()
 
 
+def _read_graph(root, con):
+    """(nodes, raw_edges, external) từ DB; (None, None, None) nếu schema không nhận dạng được."""
+    tables = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+    cols = {t: [c[1] for c in con.execute(f'PRAGMA table_info("{t}")')] for t in tables}
+
+    edge_t = s_col = d_col = k_col = None
+    for t, cs in cols.items():
+        s = next((c for c in cs if SRC_COL.match(c)), None)
+        d = next((c for c in cs if DST_COL.match(c)), None)
+        k = next((c for c in cs if KIND_COL.match(c)), None)
+        if s and d and k:
+            edge_t, s_col, d_col, k_col = t, s, d, k
+    if not edge_t:
+        return None, None, None
+    raw = con.execute(f'SELECT "{s_col}", "{d_col}", "{k_col}" FROM "{edge_t}"').fetchall()
+    if not raw:
+        return None, None, None
+
+    # Bảng node: thử mọi bảng có id + cột path; chọn bảng resolve được nhiều cạnh nhất
+    best = None
+    for t, cs in cols.items():
+        pc = next((c for c in cs if PATH_COL.match(c)), None)
+        if not pc or "id" not in [c.lower() for c in cs]:
+            continue
+        nodes = {}
+        for nid, pth in con.execute(f'SELECT id, "{pc}" FROM "{t}"'):
+            if pth:
+                nodes[nid] = _norm_path(root, pth)
+        hit = sum(1 for s, d, _ in raw if s in nodes and d in nodes)
+        if best is None or hit > best[0]:
+            best = (hit, t, nodes, cs)
+    if best is None or best[0] * 2 < len(raw):
+        return None, None, None
+    _, node_t, nodes, ncs = best
+
+    # Dep ngoài: node kind=import, name không thuộc gốc package nội bộ
+    external = defaultdict(int)
+    lc = [c.lower() for c in ncs]
+    if "kind" in lc and "name" in lc:
+        qn = "qualified_name" if "qualified_name" in lc else "name"
+        roots = {str(q).split(".")[0] for (q,) in con.execute(
+            f'SELECT "{qn}" FROM "{node_t}" WHERE lower(kind) IN (\'class\',\'interface\',\'object\',\'function\',\'enum\') AND "{qn}" IS NOT NULL')}
+        pkg = package_name(root)
+        for (name,) in con.execute(f'SELECT name FROM "{node_t}" WHERE lower(kind) = \'import\' AND name IS NOT NULL'):
+            name = str(name)
+            if name.startswith("package:"):
+                if pkg and name[len("package:"):].split("/")[0] == pkg:
+                    continue                        # package nội bộ của chính dự án
+            elif name.startswith(".") or "/" in name or name.split(".")[0] in roots:
+                continue                            # import theo đường dẫn hoặc package nội bộ
+            external[external_key(name)] += 1
+# Cùng phạm vi với scan: bỏ test, tool của harness, thư mục build — codegraph index cả repo
+    return nodes, raw, dict(external)
+
+
 def edges_from_codegraph(root):
     """Trả về (files, edges, external) hoặc None nếu không có DB / schema không nhận dạng được."""
-    db = root / DB_REL
-    if not db.exists():
+    with open_db(root) as con:
+        if con is None:
+            return None
+        try:
+            nodes, raw, external = _read_graph(root, con)
+        except sqlite3.Error:
+            return None
+    if nodes is None:
         return None
-    try:
-        con = sqlite3.connect(f"{db.as_uri()}?mode=ro", uri=True)
-        tables = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")]
-        cols = {t: [c[1] for c in con.execute(f'PRAGMA table_info("{t}")')] for t in tables}
-
-        edge_t = s_col = d_col = k_col = None
-        for t, cs in cols.items():
-            s = next((c for c in cs if SRC_COL.match(c)), None)
-            d = next((c for c in cs if DST_COL.match(c)), None)
-            k = next((c for c in cs if KIND_COL.match(c)), None)
-            if s and d and k:
-                edge_t, s_col, d_col, k_col = t, s, d, k
-        if not edge_t:
-            return None
-        raw = con.execute(f'SELECT "{s_col}", "{d_col}", "{k_col}" FROM "{edge_t}"').fetchall()
-        if not raw:
-            return None
-
-        # Bảng node: thử mọi bảng có id + cột path; chọn bảng resolve được nhiều cạnh nhất
-        best = None
-        for t, cs in cols.items():
-            pc = next((c for c in cs if PATH_COL.match(c)), None)
-            if not pc or "id" not in [c.lower() for c in cs]:
-                continue
-            nodes = {}
-            for nid, pth in con.execute(f'SELECT id, "{pc}" FROM "{t}"'):
-                if pth:
-                    nodes[nid] = _norm_path(root, pth)
-            hit = sum(1 for s, d, _ in raw if s in nodes and d in nodes)
-            if best is None or hit > best[0]:
-                best = (hit, t, nodes, cs)
-        if best is None or best[0] * 2 < len(raw):
-            return None
-        _, node_t, nodes, ncs = best
-
-        # Dep ngoài: node kind=import, name không thuộc gốc package nội bộ
-        external = defaultdict(int)
-        lc = [c.lower() for c in ncs]
-        if "kind" in lc and "name" in lc:
-            qn = "qualified_name" if "qualified_name" in lc else "name"
-            roots = {str(q).split(".")[0] for (q,) in con.execute(
-                f'SELECT "{qn}" FROM "{node_t}" WHERE lower(kind) IN (\'class\',\'interface\',\'object\',\'function\',\'enum\') AND "{qn}" IS NOT NULL')}
-            pkg = package_name(root)
-            for (name,) in con.execute(f'SELECT name FROM "{node_t}" WHERE lower(kind) = \'import\' AND name IS NOT NULL'):
-                name = str(name)
-                if name.startswith("package:"):
-                    if pkg and name[len("package:"):].split("/")[0] == pkg:
-                        continue                        # package nội bộ của chính dự án
-                elif name.startswith(".") or "/" in name or name.split(".")[0] in roots:
-                    continue                            # import theo đường dẫn hoặc package nội bộ
-                external[external_key(name)] += 1
-        con.close()
-    except sqlite3.Error:
-        return None
-
-    fileset = {p for p in nodes.values() if not p.startswith("..") and (root / p).is_file()}
+    fileset = {p for p in nodes.values() if not p.startswith("..") and in_scope(p) and (root / p).is_file()}
     files = sorted(fileset)
     edges = set()
     for s, d, kind in raw:
@@ -260,10 +272,13 @@ def edges_from_codegraph(root):
             continue
         sp, dp = nodes.get(s), nodes.get(d)
         if sp and dp and sp != dp and sp in fileset and dp in fileset:
+            ls, ld = LANG_BY_EXT.get(Path(sp).suffix), LANG_BY_EXT.get(Path(dp).suffix)
+            if ls and ld and ls != ld:
+                continue                       # cạnh khác ngôn ngữ là do codegraph khớp theo tên, không phải phụ thuộc
             edges.add((sp, dp))
     if not edges:
         return None  # có cạnh nhưng không suy ra được phụ thuộc file↔file → schema không như ta nghĩ
-    return files, sorted(edges), dict(external)
+    return files, sorted(edges), external
 
 
 # ---------- phân tích ----------
@@ -325,7 +340,7 @@ def allowed_from_module_map(root):
 def collect(root, source="auto", module_depth=2):
     root = Path(root).resolve()
     data = used = None
-    notes, unreliable = [], set()
+    notes, unreliable, incoming = [], set(), set()
     if source in ("auto", "codegraph"):
         data = edges_from_codegraph(root)
         used = "codegraph" if data else None
@@ -337,8 +352,19 @@ def collect(root, source="auto", module_depth=2):
         used = "scan"
     else:
         files, edges, external = data
-        notes.append("codegraph: mồ côi = không có cạnh tới trong graph; DI, expect/actual (KMP), navigation, reflection "
-                     "có thể gây dương tính giả — xác nhận bằng codegraph_callers trước khi xoá")
+        notes.append("codegraph: mồ côi = không ai import (scan) và không có cạnh tới trong graph; DI, expect/actual "
+                     "(KMP), navigation, reflection vẫn có thể gây dương tính giả — xác nhận bằng codegraph_callers "
+                     "trước khi xoá")
+        incoming |= {d for _, d in edges_from_scan(root)[1]}   # chỉ để bớt mồ côi giả; cạnh module vẫn thuần codegraph
+
+    # Code sinh (rules.json exclude) không báo cycle hay mồ côi, nhưng cạnh từ nó vẫn giữ để tính mồ côi:
+    # file DI sinh ra là nơi duy nhất "dùng" class đăng ký, bỏ cạnh đó sẽ sinh mồ côi giả.
+    ex = excluded_globs(root)
+    skip = {f for f in files if is_excluded(f, ex)}
+    if skip:
+        files = [f for f in files if f not in skip]
+        notes.append(f"bỏ qua {len(skip)} file khớp rules.json exclude (code sinh) khỏi cycles và mồ côi")
+    cycle_edges = [(s, d) for s, d in edges if s not in skip and d not in skip]
 
     mod_edges = defaultdict(set)
     for s, d in edges:
@@ -352,7 +378,7 @@ def collect(root, source="auto", module_depth=2):
             for md in dsts:
                 if (ms, md) not in allowed:
                     violations.append({"from": ms, "to": md})
-    imported = {d for _, d in edges}
+    imported = incoming | {d for _, d in edges}
     orphans = [f for f in files if f not in imported and Path(f).name not in ENTRY_NAMES
                and Path(f).suffix != ".kts"                          # build script không ai import là bình thường
                and LANG_BY_EXT.get(Path(f).suffix) is not None      # file không phải code (xml, sq…) không tính
@@ -361,7 +387,7 @@ def collect(root, source="auto", module_depth=2):
         "source": used,
         "notes": notes,
         "files": len(files),
-        "cycles": find_cycles(files, edges),
+        "cycles": find_cycles(files, cycle_edges),
         "module_edges": {k: sorted(v) for k, v in sorted(mod_edges.items())},
         "boundary_violations": sorted(violations, key=lambda x: (x["from"], x["to"])),
         "external": dict(sorted(external.items())),

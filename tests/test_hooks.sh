@@ -68,14 +68,77 @@ OUT=$(CLAUDE_PROJECT_DIR="$T" bash "$TOOLS/session-start.sh"); RC=$?
 echo "$OUT" | grep -q "login" || fail "không in feature: $OUT"
 [ "$(echo "$OUT" | wc -l | tr -d ' ')" -le 5 ] || fail "quá 5 dòng"
 
+# ---- guard.py (PreToolUse: chặn ghi file nguồn bằng Bash, chặn sửa tay state.json) ----
+G="$TOOLS/guard.py"
+T=$(tmp); mkdir -p "$T/lib"
+json_cmd() { python3 -c 'import json,sys; print(json.dumps({"command": sys.argv[1]}))' "$1"; }
+pre() { printf '{"tool_name":"%s","tool_input":%s}' "$1" "$2" | CLAUDE_PROJECT_DIR="$T" python3 "$G"; }
+decision() { python3 -c 'import json,sys
+d = sys.stdin.read().strip()
+print(json.loads(d)["hookSpecificOutput"]["permissionDecision"] if d else "allow")' 2>/dev/null; }
+
+echo "test_guard_blocks_bash_write_to_source"
+while IFS= read -r CMD; do
+  [ -n "$CMD" ] || continue
+  OUT=$(pre Bash "$(json_cmd "$CMD")")
+  [ "$(echo "$OUT" | decision)" = "deny" ] || fail "không chặn: $CMD → $OUT"
+done <<'CASES'
+cat > lib/a.dart <<EOF
+sed -i "" s/a/b/ lib/a.dart
+echo x | tee lib/a.dart
+cp /other/x.dart lib/a.dart
+CASES
+
+echo "test_guard_blocks_python_write_in_heredoc"
+OUT=$(pre Bash "$(printf '{"command": "python3 - <<PY\\nopen(\\"lib/a.dart\\", \\"w\\").write(1)\\nPY"}')")
+[ "$(echo "$OUT" | decision)" = "deny" ] || fail "không chặn python ghi file nguồn: $OUT"
+
+echo "test_guard_allows_normal_commands"
+while IFS= read -r CMD; do
+  [ -n "$CMD" ] || continue
+  OUT=$(pre Bash "$(json_cmd "$CMD")")
+  [ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn nhầm: $CMD → $OUT"
+done <<'CASES'
+flutter test 2>&1 | tail -5
+dart format lib/
+git show HEAD:lib/a.dart > /tmp/old.dart
+echo "cat > lib/a.dart" >> docs/note.md
+python3 .claude/tools/conform.py
+CASES
+
+echo "test_guard_escape_hatch"
+OUT=$(printf '{"tool_name":"Bash","tool_input":%s}' "$(json_cmd 'cat > lib/a.dart <<EOF')" \
+  | CLAUDE_PROJECT_DIR="$T" NAPOLEON_ALLOW_BASH_WRITES=1 python3 "$G")
+[ -z "$OUT" ] || fail "cờ NAPOLEON_ALLOW_BASH_WRITES không mở lối: $OUT"
+
+echo "test_guard_blocks_manual_state_edit"
+OUT=$(pre Write '{"file_path":"docs/napoleon/state.json"}')
+[ "$(echo "$OUT" | decision)" = "deny" ] || fail "không chặn sửa tay state.json: $OUT"
+echo "$OUT" | grep -q "state.py" || fail "thông báo không chỉ sang state.py"
+OUT=$(pre Edit '{"file_path":"lib/a.dart"}')
+[ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn nhầm Edit file nguồn: $OUT"
+
+echo "test_guard_post_nudges_codegraph_only_for_symbol_search"
+OUT=$(printf '{"tool_name":"Bash","tool_input":%s}' "$(json_cmd 'grep -rn CompareTray lib')" | python3 "$G" --post)
+echo "$OUT" | grep -q "codegraph" || fail "không nhắc codegraph: $OUT"
+OUT=$(printf '{"tool_name":"Bash","tool_input":%s}' "$(json_cmd 'flutter test | grep -c passed')" | python3 "$G" --post)
+[ -z "$OUT" ] || fail "nhắc nhầm khi lọc output lệnh: $OUT"
+
+echo "test_guard_bad_stdin_is_silent"
+OUT=$(echo 'không phải json' | python3 "$G"); RC=$?
+{ [ "$RC" -eq 0 ] && [ -z "$OUT" ]; } || fail "stdin hỏng phải im lặng, exit 0 (rc=$RC, out=$OUT)"
+
 echo "test_settings_json_valid"
 python3 - "$ROOT/.claude/settings.json" <<'EOF' || fail "settings.json không hợp lệ"
 import json, sys
 s = json.load(open(sys.argv[1]))
 h = s["hooks"]
-assert {"PostToolUse", "Stop", "SessionStart"} <= set(h), h.keys()
+assert {"PreToolUse", "PostToolUse", "Stop", "SessionStart"} <= set(h), h.keys()
 assert h["PostToolUse"][0]["matcher"] == "Edit|Write"
 assert "check.sh" in h["PostToolUse"][0]["hooks"][0]["command"]
+assert "guard.py" in h["PreToolUse"][0]["hooks"][0]["command"]
+assert "Bash" in h["PreToolUse"][0]["matcher"] and "Write" in h["PreToolUse"][0]["matcher"]
+assert any("guard.py --post" in x["hooks"][0]["command"] for x in h["PostToolUse"])
 assert "codegraph-sync.sh" in h["Stop"][0]["hooks"][0]["command"]
 assert "session-start.sh" in h["SessionStart"][0]["hooks"][0]["command"]
 EOF

@@ -20,6 +20,8 @@ description: Napoleon hoạt động thế nào, phân vai với superpowers, fi
 | Trạng thái feature/task xuyên phiên | napoleon `state.py` |
 | Truy vấn code | codegraph MCP, skill `using-codegraph` |
 | Kiểm tra quy ước, phụ thuộc, báo cáo | napoleon `conform.py`, `audit.py`, `report.py` |
+| Chọn test cần chạy sau một thay đổi | napoleon `affected.py` (bước build); verify vẫn chạy toàn bộ |
+| Chặn ghi file nguồn bằng Bash, chặn sửa tay state.json | napoleon hook `guard.py` |
 | Kiểm tra độc lập sau build | napoleon agent `verifier` |
 
 Napoleon không viết lại quy trình superpowers. Ở mỗi bước của `/feature`, nó gọi skill superpowers tương ứng.
@@ -45,8 +47,9 @@ Napoleon không viết lại quy trình superpowers. Ở mỗi bước của `/f
 ## Tool nào khi nào
 - Mở phiên: `state.py show --brief`.
 - Trước plan: `codegraph status`; cũ → `codegraph sync`.
-- Sau mỗi task build: `conform.py`.
+- Đóng task build: `state.py task done` (tự chạy `conform.py` + test theo diff), rồi commit.
 - Bước verify: toolchain (format/analyze/test/build) → `conform.py` → `audit.py` → agent `verifier`.
-- Bước done: `codegraph sync`, `state.py session note`.
+- Bước done: `codegraph sync`, `state.py feature step <tên> done` (cổng đọc `verify.md`), `followup add` cho việc ADR hẹn lại, `state.py session note`.
+- Mục Người trong `verify.md`: người dùng tick sau bằng `state.py human <tên> tick <n>`; không chặn done, không tự tick.
 - Muốn số liệu: `report.py`. Không gõ tay.
 - `docs/sources/` đổi: `sources.py diff` → `/sync-docs` hỏi từng điểm lệch → `state.py sources mark`. Không tự sửa instructions/spec theo tài liệu mới mà chưa hỏi.

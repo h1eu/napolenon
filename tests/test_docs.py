@@ -69,7 +69,41 @@ class DocsTest(unittest.TestCase):
             self.assertIn(h, text)
         common = text.split("## Chung", 1)[1].split("## Theo stack", 1)[0]
         self.assertNotRegex(common, r"<[^>]*>", "khối Chung còn placeholder")
-        self.assertGreaterEqual(common.count("[rules.json]"), 3)
+        self.assertGreaterEqual(common.count("[rule:"), 3)
+
+    def test_every_convention_line_is_tagged(self):
+        """Mỗi dòng quy ước có [rule: …] hoặc [tay]; dưới 'Không kiểm tự động' thì không cần."""
+        text = (C / "templates" / "conventions.md").read_text(encoding="utf-8")
+        manual = False
+        for n, line in enumerate(text.splitlines(), 1):
+            if line.startswith("#"):
+                manual = "Không kiểm tự động" in line
+                continue
+            body = line.strip()
+            if not body.startswith("- ") or manual or body[2:].lstrip().startswith("<"):
+                continue
+            self.assertRegex(body, r"\[rule: [^\]]+\]|\[tay\]", f"conventions.md:{n}")
+
+    def test_agent_declares_mcp_tools_it_uses(self):
+        for a in sorted(C.glob("agents/*.md")):
+            tools = fm_field(frontmatter(a), "tools") or ""
+            for mcp in set(re.findall(r"codegraph_\w+", body_after_frontmatter(a))):
+                self.assertIn(mcp, tools, f"{a}: thân nhắc {mcp} nhưng frontmatter tools không khai")
+
+    def test_settings_hooks_cover_guard(self):
+        s = json.loads((C / "settings.json").read_text(encoding="utf-8"))
+        pre = s["hooks"]["PreToolUse"][0]
+        self.assertIn("Bash", pre["matcher"])
+        self.assertIn("Write", pre["matcher"])
+        self.assertIn("guard.py", pre["hooks"][0]["command"])
+        post = " ".join(h["hooks"][0]["command"] for h in s["hooks"]["PostToolUse"])
+        self.assertIn("check.sh", post)
+        self.assertIn("guard.py --post", post)
+
+    def test_tools_present(self):
+        names = {p.name for p in (C / "tools").glob("*.py")}
+        self.assertEqual({"state.py", "conform.py", "audit.py", "report.py", "sources.py", "imports.py",
+                          "affected.py", "guard.py", "funcs.py", "globs.py", "cgdb.py"}, names)
 
     def test_brief_template_exists(self):
         text = (C / "templates" / "brief.md").read_text(encoding="utf-8")

@@ -1,5 +1,6 @@
 {
-  "_doc": "Quy ước máy đọc được cho conform.py. Glob dùng fnmatch, '*' và '**' đều khớp qua '/'. Xoá các rule mẫu không dùng.",
+  "_doc": "Quy ước máy đọc được cho conform.py. Glob dùng fnmatch, '*' và '**' đều khớp qua '/'. Mỗi rule phải có một dòng trong conventions.md mang nhãn [rule: <id>] — kiểm bằng: conform.py --coverage. Xoá rule mẫu không dùng.",
+  "exclude": ["*.g.dart", "*.freezed.dart", "*.config.dart", "<lib>/l10n/gen/**", "**/generated/**"],
   "rules": [
     {
       "id": "no-ui-in-domain",
@@ -12,6 +13,12 @@
       "type": "forbidden-import",
       "in": "<lib>/**/presentation/**",
       "forbid": ["*/data/*"]
+    },
+    {
+      "id": "no-cross-feature",
+      "type": "no-sibling-import",
+      "base": "<lib>/features",
+      "allow": []
     },
     {
       "id": "state-holder-suffix",
@@ -30,6 +37,28 @@
       "type": "max-lines",
       "in": "<lib>/**",
       "max": 400
+    },
+    {
+      "id": "max-function-lines",
+      "type": "max-function-lines",
+      "in": "<lib>/**",
+      "max": 40
+    },
+    {
+      "id": "max-params",
+      "type": "max-params",
+      "in": "<lib>/**",
+      "max": 5,
+      "constructors": false
+    },
+    {
+      "id": "no-hardcoded-color",
+      "type": "forbidden-pattern",
+      "in": "<lib>/**",
+      "regex": "Color\\(0x",
+      "allow": ["<lib>/core/theme/**"],
+      "skip_strings": true,
+      "message": "màu phải lấy từ theme, không viết mã màu tại chỗ"
     },
     {
       "id": "few-comments",

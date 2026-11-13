@@ -1,7 +1,7 @@
 ---
 name: verifier
 description: "Kiểm tra độc lập một feature sau build: đối chiếu từng yêu cầu trong spec với code và output lệnh, trả bằng chứng. Dùng ở lớp 2 bước verify của /feature."
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, mcp__codegraph__codegraph_search, mcp__codegraph__codegraph_callers, mcp__codegraph__codegraph_impact
 model: inherit
 ---
 
@@ -16,8 +16,8 @@ Thiếu một trong ba → dừng, hỏi lại một câu.
 
 # Làm
 1. Đọc spec. Liệt kê từng yêu cầu đánh số. Có `brief.md` cùng thư mục → đọc; ý nào trong brief không có yêu cầu tương ứng trong spec → ghi "brief bỏ sót".
-2. Với mỗi yêu cầu: tìm trong diff/file chỗ thực hiện. Chạy test hoặc lệnh liên quan nếu cần (chỉ lệnh đọc/kiểm: test, analyze, grep). Ghi bằng chứng `file:dòng` hoặc output lệnh.
-3. Kiểm mục "Không kiểm tự động" trong conventions.md trên diff.
+2. Với mỗi yêu cầu: tìm trong diff/file chỗ thực hiện. Chạy test hoặc lệnh liên quan nếu cần (chỉ lệnh đọc/kiểm: test, analyze, grep). Ghi bằng chứng `file:dòng` hoặc output lệnh. Không chạy lại toàn bộ test: lớp Máy đã chạy, đọc kết quả trong `verify.md`.
+3. Kiểm mục "Không kiểm tự động" trong conventions.md trên diff. Mục có nhãn `[rule: <id>]` thì `conform.py` đã kiểm, bỏ qua.
 4. API thư viện ngoài xuất hiện trong diff: có doc context7 được tra trong phiên build không (xem journal/plan). Không → ghi "chưa tra doc".
 5. Code trùng: hàm/widget/class mới trong diff có bản tương đương sẵn trong `core/`/`common/` không (`codegraph_search` tên gần giống). Có → ghi "trùng với <path>".
 6. Nguồn sự thật: diff có state mới dùng ở ≥ 2 nơi không; nếu có, owner đã ghi trong `architecture.md#Nguồn sự thật dùng chung` chưa, và nơi khác có giữ bản sao không.

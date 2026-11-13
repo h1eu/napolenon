@@ -18,7 +18,14 @@ description: Sinh rule theo path, skill và agent riêng cho dự án từ .clau
    - cần **context cô lập** (vd: review không được thấy lời giải thích của người build),
    - cần **phân quyền khác** (vd: chỉ đọc, hoặc chỉ được chạy lệnh test).
    Không đạt → làm skill. Agent từ `templates/feature-agent.md`, tên `project-<việc>`, ghi lý do một dòng.
-6. In danh sách file đã sinh và câu "chạy lại /setup-agents khi instructions/ đổi".
+   Agent nhắc tới tool MCP nào (`codegraph_*`, `context7`…) thì **phải** khai tool đó trong frontmatter `tools:`; thiếu là agent câm.
+6. Kiểm bộ quy ước trước khi kết thúc:
+```bash
+python3 .claude/tools/conform.py --coverage   # quy ước chưa gắn [rule: …]/[tay], nhãn trỏ rule không có, rule glob chết
+python3 .claude/tools/conform.py              # rule mới chạy được trên code thật
+```
+   Có lỗi → sửa `rules.json`/`conventions.md` (skill `writing-conventions`) rồi chạy lại. Không kết thúc khi `--coverage` còn lỗi.
+7. In danh sách file đã sinh và câu "chạy lại /setup-agents khi instructions/ đổi".
 
 ## Dấu generated và chạy lại
 - Mọi file sinh: frontmatter `---` ở dòng 1 (Claude Code đòi vậy), dòng đầu tiên của thân là `<!-- napoleon:generated -->`.

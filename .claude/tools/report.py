@@ -19,10 +19,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import audit  # noqa: E402
+from cgdb import DB_REL, open_db  # noqa: E402
 
 STATE_REL = Path("docs/napoleon/state.json")
 FEATURES_REL = Path("docs/napoleon/features")
-DB_REL = Path(".codegraph/codegraph.db")
 NO_DATA = "không có dữ liệu"
 
 CSS = """
@@ -68,29 +68,45 @@ CG_TABLES = ("files", "nodes", "edges")
 
 def codegraph_stats(root, recognized):
     """Đếm files/nodes/edges — chỉ khi audit.py đã nhận dạng được schema (recognized)."""
-    db = root / DB_REL
-    if not db.exists() or not recognized:
+    if not (root / DB_REL).exists() or not recognized:
         return None
     try:
-        con = sqlite3.connect(f"{db.as_uri()}?mode=ro", uri=True)
-        tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        counts = {t: con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in CG_TABLES if t in tables}
-        con.close()
+        with open_db(root) as con:
+            if con is None:
+                return None
+            tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            counts = {t: con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0] for t in CG_TABLES if t in tables}
         return counts or None
     except sqlite3.Error:
         return None
 
 
+HUMAN_HEADING = re.compile(r"^##\s+Người\s*$")
+BOX = re.compile(r"^\s*- \[( |x|X)\]")
+
+
 def verify_counts(root):
+    """feature → (máy đạt, máy tổng, người chờ). Mục Người tách riêng: người tự kiểm sau, không kéo tỉ lệ xuống."""
     out = {}
     base = root / FEATURES_REL
     if not base.exists():
         return out
     for v in sorted(base.glob("*/verify.md")):
-        text = v.read_text(encoding="utf-8", errors="replace")
-        done = len(re.findall(r"^\s*- \[x\]", text, re.M | re.I))
-        todo = len(re.findall(r"^\s*- \[ \]", text, re.M))
-        out[v.parent.name] = (done, done + todo)
+        done = total = human = 0
+        in_human = False
+        for line in v.read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("## "):
+                in_human = bool(HUMAN_HEADING.match(line))
+                continue
+            m = BOX.match(line)
+            if not m:
+                continue
+            if in_human:
+                human += m.group(1) == " "
+            else:
+                total += 1
+                done += m.group(1) != " "
+        out[v.parent.name] = (done, total, human)
     return out
 
 
@@ -157,11 +173,28 @@ def render_codegraph(counts):
     return "".join(stat(f"cg-{k}", k, counts[k]) for k in CG_TABLES if k in counts)
 
 
-def render_verify(vc):
+def render_verify(vc, state):
     if not vc:
         return f'<p class="muted">{NO_DATA}</p>'
-    return "<table><tr><th>Feature</th><th>Mục đạt</th></tr>" + "".join(
-        f"<tr><td>{esc(k)}</td><td data-stat='verify-{esc(k)}'>{d}/{n}</td></tr>" for k, (d, n) in vc.items()) + "</table>"
+    rounds = {k: len(f.get("verify", [])) for k, f in (state or {}).get("features", {}).items()}
+    body = stat("verify-human", "mục Người chờ bạn", sum(h for _, _, h in vc.values()))
+    rows = "".join(
+        f"<tr><td>{esc(k)}</td><td data-stat='verify-{esc(k)}'>{d}/{n}</td>"
+        f"<td data-stat='human-{esc(k)}'>{h or ''}</td><td>{rounds.get(k) or ''}</td></tr>"
+        for k, (d, n, h) in vc.items())
+    return body + ("<table><tr><th>Feature</th><th>Máy + verifier</th><th>Người chờ</th><th>Lần verify</th></tr>"
+                   + rows + "</table>")
+
+
+def render_followups(state):
+    fu = (state or {}).get("followups", [])
+    if not fu:
+        return f'<p class="muted">không có followup</p>'
+    op = [x for x in fu if x["status"] == "open"]
+    body = stat("followups-open", "đang mở", len(op)) + stat("followups", "tổng", len(fu))
+    return body + "<table><tr><th>#</th><th>Feature</th><th>Việc</th><th>Nguồn</th></tr>" + "".join(
+        f"<tr><td>{x['id']}</td><td>{esc(x['feature'])}</td><td>{esc(x['text'])}</td><td>{esc(x['source'])}</td></tr>"
+        for x in op) + "</table>"
 
 
 def render_audit(a):
@@ -196,7 +229,8 @@ def build(root):
         section("tasks", "Task", render_tasks(state), "docs/napoleon/state.json"),
         section("commits", "Commit", render_commits(log, state), "git log"),
         section("codegraph", "Codegraph", render_codegraph(cg), ".codegraph/codegraph.db"),
-        section("verify", "Verify", render_verify(vc), "docs/napoleon/features/*/verify.md"),
+        section("verify", "Verify", render_verify(vc, state), "docs/napoleon/features/*/verify.md + state.json"),
+        section("followups", "Việc hẹn lại", render_followups(state), "docs/napoleon/state.json"),
         section("audit", "Audit", render_audit(a), f"audit.py (source: {a['source'] if a else '—'})"),
         "</body></html>",
     ]

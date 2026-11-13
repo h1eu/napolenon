@@ -1,11 +1,14 @@
 {
-  "_doc": "Lệnh theo stack. {file} được check.sh thay bằng đường dẫn file vừa sửa. Lệnh không hỗ trợ từng file thì bỏ {file}. Xoá đuôi không dùng.",
+  "_doc": "Lệnh theo stack. {file} được check.sh thay bằng đường dẫn file vừa sửa; {files} được affected.py thay bằng danh sách file test. Lệnh không hỗ trợ từng file thì bỏ {file}/{test_one}. Xoá đuôi không dùng.",
   "by_ext": {
     ".dart": { "format": "dart format {file}", "analyze": "dart analyze {file}" },
     ".kt":   { "format": "ktlint -F {file}", "analyze": "" },
     ".swift": { "format": "swiftformat {file}", "analyze": "swiftlint lint --quiet {file}" }
   },
   "test": "<flutter test | ./gradlew testDebugUnitTest | xcodebuild test ...>",
+  "test_one": "<lệnh chạy một số file test, {files} = danh sách; vd: flutter test {files}>",
+  "test_files": ["test/**"],
+  "full_test_when": ["<glob đụng tới là phải chạy toàn bộ: pubspec.yaml, lib/core/di/**, lib/core/router/**, lib/core/theme/**, lib/l10n/**>"],
   "build": "<flutter build apk --debug | ./gradlew assembleDebug | xcodebuild build ...>",
   "codegen": "<để trống nếu không có; vd: dart run build_runner build -d>"
 }

@@ -99,7 +99,7 @@ Kịch bản chạy tay đầy đủ 15 phút: [tests/smoke.md](tests/smoke.md).
 brief ──▶ spec ──▶ plan ──▶ build ──▶ verify ──▶ done
   │        │        │         │          │
   │        │        │         │          └─ fail → về build
-  │        │        │         └─ từng task: codegraph_search → TDD → conform.py → task done
+  │        │        │         └─ từng task: codegraph_search → TDD → task done (cổng: conform + test theo diff) → commit
   │        │        └─ codegraph_impact cho mỗi symbol sửa; task vào state.json
   │        └─ brainstorming (bounded), hỏi phần chưa rõ, yêu cầu đánh số, phủ hết brief
   └─ đề bài nguyên văn của bạn, không sửa sau khi có spec
@@ -109,11 +109,18 @@ Mọi file của feature nằm ở `docs/napoleon/features/<tên>/`: `brief.md`,
 
 Verify ba lớp, lớp nào máy làm được thì máy làm:
 
-1. **Máy** — format, analyze, test, build từ `toolchain.json`; `conform.py` 0 vi phạm; `audit.py` không thêm cycle, không vượt ranh giới.
+1. **Máy** — format, analyze, **toàn bộ** test, build từ `toolchain.json`; `conform.py` 0 vi phạm; `audit.py` không thêm cycle, không vượt ranh giới. (Trong lúc build thì chỉ chạy test theo diff — xem `affected.py`.)
 2. **Agent `verifier`** — context riêng, chỉ đọc, nhận spec + diff, không nhận lời giải thích. Trả bảng từng yêu cầu đạt/chưa kèm `file:dòng`. Không bằng chứng = chưa đạt.
-3. **Bạn** — những gì máy và verifier không kiểm được (UI trên máy thật, cảm nhận).
+3. **Bạn** — những gì máy và verifier không kiểm được (UI trên máy thật, cảm nhận). Mục này **không chặn** `done`: feature vẫn chốt được, mục Người nằm chờ bạn tick sau (`state.py human <tên> tick <n>`), `/report` đếm riêng.
 
-Trạng thái chỉ sửa qua `state.py`. Mở phiên mới chỉ cần `/status`.
+Hai chỗ chặn bằng code, không chặn bằng chữ:
+
+- `state.py task done` tự chạy `conform.py` trên file của task và test theo diff; trượt thì task không được đánh done.
+- `state.py feature step <tên> done` đọc `verify.md`: còn ô trống ngoài mục "Người" thì không cho sang `done`.
+
+Verify trượt → `state.py verify <tên> fail --issue <nhãn>`; nhãn lặp ở ≥ 2 feature thì tool nhắc `/retro` để biến nó thành rule. Việc ADR hẹn làm sau → `state.py followup add`, hiện ở `/status` và `/report`.
+
+Trạng thái chỉ sửa qua `state.py` (hook chặn sửa tay). Mở phiên mới chỉ cần `/status`.
 
 ## Quy tắc Claude phải theo
 
@@ -121,7 +128,9 @@ Nằm trong [`.claude/CLAUDE.md`](.claude/CLAUDE.md), dưới 100 dòng, luôn n
 
 | Quy tắc | Cơ chế ép |
 |---|---|
-| Codegraph trước grep | skill `using-codegraph`; `/map-codebase` và bước plan gọi codegraph |
+| Codegraph trước grep | skill `using-codegraph`; `/map-codebase` và bước plan gọi codegraph; hook `guard.py --post` nhắc khi grep tên symbol |
+| Sửa file nguồn chỉ bằng Write/Edit | hook `guard.py` chặn `cat >`, `sed -i`, `tee`, python ghi file; mở lối bằng `NAPOLEON_ALLOW_BASH_WRITES=1` |
+| Mỗi quy ước phải có chỗ chặn hoặc nhãn `[tay]` | `conform.py --coverage`; `/setup-agents` không kết thúc khi còn lỗi |
 | Tra doc trước khi dùng API lạ | context7 trong `.mcp.json`; verifier có mục "API chưa tra doc" |
 | Tìm trước, viết sau — không tạo bản thứ hai của thứ đã có trong `core/` | bước build gọi `codegraph_search`; verifier có mục "Code trùng" |
 | Comment chỉ cho "vì sao" | `conform.py` rule `max-comment-ratio` |
@@ -130,7 +139,8 @@ Nằm trong [`.claude/CLAUDE.md`](.claude/CLAUDE.md), dưới 100 dòng, luôn n
 | Mơ hồ → hỏi một câu trắc nghiệm, dừng chờ | mọi skill; không có đường "tự quyết" |
 | Một nguồn sự thật cho state dùng ở ≥ 2 nơi; nơi khác quan sát | bảng "Nguồn sự thật dùng chung" trong `architecture.md`, chốt ở `/start-build`; verifier kiểm |
 | Logic tái dùng → manager class, ngoài `presentation/`, có test, một việc | `rules.json` naming + location; bảng "Logic tái dùng" |
-| Trạng thái và số liệu chỉ qua tool | `state.py`, `audit.py`, `report.py`; không sửa tay |
+| Trạng thái và số liệu chỉ qua tool | `state.py`, `audit.py`, `report.py`; hook chặn Write/Edit vào `state.json` |
+| Task chỉ xong khi máy nói xong | `state.py task done` chạy `conform.py` + test theo diff trước khi đổi trạng thái |
 | Gọn: mô tả ≤ 3 dòng, chỉ phải làm / cấm | test `test_docs.py` ép |
 | Một vòng lặp chính; subagent chỉ khi cần song song, cô lập, hoặc phân quyền | bộ lõi có đúng một agent; `/setup-agents` phải ghi lý do khi sinh agent |
 
@@ -141,7 +151,7 @@ Trong repo này:
 ```
 .claude/
 ├── CLAUDE.md                 lõi, luôn nạp
-├── settings.json             3 hook
+├── settings.json             5 hook
 ├── commands/                 8 lệnh
 ├── skills/
 │   ├── napoleon-core/        phân vai, file ở đâu, tool nào khi nào
@@ -152,7 +162,8 @@ Trong repo này:
 │   ├── verifying/            3 lớp
 │   └── using-codegraph/      câu hỏi → tool
 ├── agents/verifier.md
-├── tools/                    state.py conform.py audit.py report.py sources.py imports.py + 3 hook .sh
+├── tools/                    state.py conform.py audit.py affected.py report.py sources.py
+│                             guard.py (hook) + funcs.py globs.py cgdb.py imports.py + 3 hook .sh
 ├── templates/                khuôn cho mọi file sinh ra
 ├── instructions/             (trống) /start-build sinh
 └── rules/                    (trống) /setup-agents sinh
@@ -190,12 +201,19 @@ python3 .claude/tools/state.py init
 python3 .claude/tools/state.py show [--brief|--json]
 python3 .claude/tools/state.py feature add|step|show <tên> [bước]
 python3 .claude/tools/state.py task add <feature> "<title>" [--files a,b]
-python3 .claude/tools/state.py task start|done <feature> <id>
+python3 .claude/tools/state.py task start <feature> <id>
+python3 .claude/tools/state.py task done <feature> <id> [--skip-tests] [--skip-conform]
 python3 .claude/tools/state.py task block <feature> <id> "<lý do>"
+python3 .claude/tools/state.py verify <feature> pass|fail [--issue <nhãn>] [--note "..."]
+python3 .claude/tools/state.py human <feature> list|tick <n>|tick-all
+python3 .claude/tools/state.py followup add <feature> "<việc>" [--source ADR-012] | list [--all] | done <id>
 python3 .claude/tools/state.py session note <feature> "<ghi chú>"
 ```
 
-Ghi `docs/napoleon/state.json` atomic; `session note` append `journal.md`. Tên feature `[a-z0-9-]`.
+Ghi `docs/napoleon/state.json` atomic; `session note` append `journal.md`. Tên feature `[a-z0-9-]`. State cũ (version 1) đọc được, tự nâng lên version 2 khi ghi.
+
+`task done` là cổng: chạy `conform.py --files <file của task>` rồi test theo diff (`affected.py`), trượt thì task giữ nguyên trạng thái và in lý do. Xong thì lưu sha HEAD làm mốc diff cho task sau. `--skip-*` ghi thẳng lý do vào `state.json` và hiện trong `/report`.
+`feature step <tên> done` chặn khi `verify.md` còn ô trống ngoài mục "Người"; ô trong mục Người chỉ được đếm và nhắc.
 
 ### `conform.py`
 
@@ -208,8 +226,19 @@ Soi code theo `instructions/rules.json`. In `path:dòng: rule-id: thông điệp
 | `location` | `pattern`, `must_be_under` | file loại X phải nằm dưới thư mục Y |
 | `max-lines` | `in`, `max` | file quá dài |
 | `max-comment-ratio` | `in`, `max_ratio`, `min_lines` | quá nhiều comment |
+| `max-function-lines` | `in`, `max` | hàm quá dài |
+| `max-params` | `in`, `max`, `constructors` | hàm quá nhiều tham số (`constructors: false` để tha data class) |
+| `forbidden-pattern` | `in`, `regex`, `allow[]`, `message`, `skip_strings` | hardcode: mã màu, icon bộ khác, API cấm. Luôn bỏ dòng comment |
+| `no-sibling-import` | `base`, `allow[]` | feature import feature khác — một rule thay cho N² rule |
 
-Glob kiểu fnmatch; `*` và `**` đều khớp qua `/`, `**/` khớp cả 0 thư mục. Import đọc bằng regex cho Dart, Kotlin, Swift, TS/JS, Python.
+Khoá `exclude` (list glob) ở cấp cao nhất loại code sinh khỏi mọi rule; `audit.py` và `affected.py` dùng chung danh sách đó.
+Glob kiểu fnmatch; `*` và `**` đều khớp qua `/`, `**/` khớp cả 0 thư mục. Import đọc bằng regex cho Dart, Kotlin, Swift, TS/JS, Python; hàm đọc bằng quét ký tự (`funcs.py`), không AST.
+
+```bash
+python3 .claude/tools/conform.py --coverage
+```
+
+Soi chính bộ quy ước: dòng trong `conventions.md` chưa gắn `[rule: <id>]` hoặc `[tay]` (lỗi), nhãn trỏ rule không tồn tại (lỗi), rule không khớp file nào hoặc không quy ước nào nhắc tới (cảnh báo).
 
 ### `audit.py`
 
@@ -225,16 +254,27 @@ Nguồn cạnh file → file:
 
 Output luôn ghi `source:` và các `ghi chú:` (ngôn ngữ chưa resolve, Kotlin/Swift không tính mồ côi từ scan, dương tính giả mồ côi từ codegraph do DI/expect-actual). Không trộn hai nguồn.
 
+### `affected.py`
+
+```bash
+python3 .claude/tools/affected.py [--base HEAD] [--files a,b] [--max-ratio 0.6] [--json]
+```
+
+File đổi (git diff + file chưa track) → ai import chúng bắc cầu → file test chạm tới → in lệnh chạy đúng nhóm test đó. Chạy **toàn bộ** khi: không có git hoặc mốc sai, file đổi chưa có trong đồ thị import (file mới), file đổi khớp `full_test_when` trong `toolchain.json` (pubspec, DI, router, theme, l10n), hoặc số test ảnh hưởng vượt `--max-ratio`. `state.py task done` gọi tool này; bước verify không dùng.
+
 ### `report.py`
 
 Sinh `reports/roadmap.html` một file, không CDN. Nguồn: `state.json`, `git log`, codegraph, `verify.md`, `audit.py`. Mỗi bảng có dòng "nguồn: …"; thiếu nguồn → "không có dữ liệu". Muốn thêm số → sửa `report.py`, không sửa HTML.
+Mục Verify đếm riêng "máy + verifier" và "người chờ bạn", kèm số lần verify mỗi feature; mục "Việc hẹn lại" liệt kê followup đang mở.
 
 ## Hooks
 
-Trong `.claude/settings.json`. Không hook nào chặn (luôn exit 0).
+Trong `.claude/settings.json`. Chỉ `guard.py` chặn; các hook còn lại luôn exit 0.
 
 | Event | Script | Làm gì |
 |---|---|---|
+| `PreToolUse` (Bash\|Write\|Edit…) | `guard.py` | **chặn**: ghi file nguồn bằng Bash (`cat >`, `sed -i`, `tee`, python ghi file), và Write/Edit thẳng vào `state.json`. Mở lối: `NAPOLEON_ALLOW_BASH_WRITES=1` |
+| `PostToolUse` (Bash\|Grep) | `guard.py --post` | grep tên symbol trong thư mục code → nhắc dùng codegraph. Không chặn |
 | `PostToolUse` (Edit\|Write) | `check.sh` | format rồi analyze file vừa sửa theo `toolchain.json`; output trả về Claude qua `additionalContext`. Không có `toolchain.json` → im lặng |
 | `Stop` | `codegraph-sync.sh` | có file đổi và có codegraph → `codegraph sync` |
 | `SessionStart` | `session-start.sh` | in ≤ 5 dòng từ `state.py show --brief` |
@@ -274,7 +314,7 @@ Quy ước có hai tầng:
 tests/run.sh
 ```
 
-Chạy unittest (stdlib) cho 4 tool + `test_docs.py` (frontmatter, độ dài, dấu generated, YAML-safe) + bash test cho hooks và `install.sh`. Fixture: `tests/fixtures/flutter_mini` (6 file Dart, mỗi loại rule một vi phạm, một cycle) và DB codegraph giả.
+Chạy unittest (stdlib) cho 6 tool (`state`, `conform`, `audit`, `affected`, `report`, `funcs`) + `test_docs.py` (frontmatter, độ dài, dấu generated, YAML-safe, nhãn quy ước, agent khai đủ tool MCP) + bash test cho hooks (gồm `guard.py`) và `install.sh`. Fixture: `tests/fixtures/flutter_mini` (6 file Dart, mỗi loại rule một vi phạm, một cycle) và DB codegraph giả.
 
 Quy ước khi sửa bộ:
 - Test trước, code sau. Mọi tool, hook, install đều có test chạy được không cần codegraph thật.

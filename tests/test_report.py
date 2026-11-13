@@ -27,7 +27,7 @@ class ReportTest(unittest.TestCase):
         for t in ("A", "B", "C"):
             tool("state.py", self.root, "task", "add", "login", t)
         for i in ("1", "2", "3"):
-            tool("state.py", self.root, "task", "done", "login", i)
+            tool("state.py", self.root, "task", "done", "login", i, "--skip-tests")
         tool("state.py", self.root, "task", "add", "profile", "D")
         v = self.root / "docs/napoleon/features/login/verify.md"
         v.parent.mkdir(parents=True)
@@ -43,7 +43,7 @@ class ReportTest(unittest.TestCase):
 
     def test_html_generated_with_sections(self):
         html = self.render()
-        for s in ("Feature", "Task", "Commit", "Codegraph", "Verify", "Audit"):
+        for s in ("Feature", "Task", "Commit", "Codegraph", "Verify", "Việc hẹn lại", "Audit"):
             self.assertIn(s, html)
 
     def test_numbers_from_state(self):
@@ -64,9 +64,24 @@ class ReportTest(unittest.TestCase):
         self.assertNotIn("https://", html)
         self.assertNotIn("<script src", html)
 
-    def test_verify_counts(self):
+    def test_verify_counts_separate_machine_from_human(self):
         html = self.render()
-        self.assertIn("3/4", html)
+        self.assertRegex(html, r"data-stat='verify-login'>3/3<")    # máy + verifier
+        self.assertRegex(html, r"data-stat='human-login'>1<")       # người chờ, không kéo tỉ lệ xuống
+        self.assertRegex(html, r'data-stat="verify-human">1<')
+
+    def test_followups_section(self):
+        tool("state.py", self.root, "followup", "add", "login", "thêm chip B26", "--source", "ADR-020")
+        html = self.render()
+        self.assertRegex(html, r'data-stat="followups-open">1<')
+        self.assertIn("thêm chip B26", html)
+        self.assertIn("ADR-020", html)
+
+    def test_verify_rounds_column(self):
+        tool("state.py", self.root, "verify", "login", "fail", "--issue", "hardcode")
+        tool("state.py", self.root, "verify", "login", "pass")
+        m = re.search(r'id="verify".*?</section>', self.render(), re.S)
+        self.assertIn("<td>2</td>", m.group(0))
 
     def test_every_stat_has_source_note(self):
         html = self.render()
