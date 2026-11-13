@@ -120,6 +120,36 @@ class AffectedTest(unittest.TestCase):
         self.assertEqual(d["mode"], "all")
         self.assertEqual(d["command"], "")
 
+    def test_hub_stops_propagation(self):
+        # router.dart import mọi màn; app_test dựng cả app qua router → sửa một màn không nên kéo app_test
+        self.write("lib/router.dart", "import 'package:app/features/a/a.dart';\nimport 'package:app/features/b/b.dart';\n")
+        self.write("test/app_test.dart", "import 'package:app/router.dart';\n")
+        self.write("test/router_test.dart", "import 'package:app/router.dart';\n")
+        tc = dict(TOOLCHAIN, affected_hubs=["lib/router.dart"])
+        self.write(".claude/instructions/toolchain.json", json.dumps(tc))
+        d = self.run_tool("--files", "lib/features/b/b.dart", "--max-ratio", "1")
+        self.assertEqual(d["tests"], ["test/b_test.dart"])
+
+    def test_without_hub_propagates_through_router(self):
+        self.write("lib/router.dart", "import 'package:app/features/b/b.dart';\n")
+        self.write("test/app_test.dart", "import 'package:app/router.dart';\n")
+        d = self.run_tool("--files", "lib/features/b/b.dart", "--max-ratio", "1")
+        self.assertEqual(d["tests"], ["test/app_test.dart", "test/b_test.dart"])
+
+    def test_generated_files_are_hubs(self):
+        self.write("lib/di.config.dart", "import 'package:app/features/b/b.dart';\n")
+        self.write("test/di_test.dart", "import 'package:app/di.config.dart';\n")
+        self.write(".claude/instructions/rules.json", json.dumps({"exclude": ["*.config.dart"], "rules": []}))
+        d = self.run_tool("--files", "lib/features/b/b.dart", "--max-ratio", "1")
+        self.assertEqual(d["tests"], ["test/b_test.dart"])
+
+    def test_changing_the_hub_itself_still_finds_its_tests(self):
+        self.write("lib/router.dart", "import 'package:app/features/b/b.dart';\n")
+        self.write("test/app_test.dart", "import 'package:app/router.dart';\n")
+        self.write(".claude/instructions/toolchain.json", json.dumps(dict(TOOLCHAIN, affected_hubs=["lib/router.dart"])))
+        d = self.run_tool("--files", "lib/router.dart", "--max-ratio", "1")
+        self.assertEqual(d["tests"], ["test/app_test.dart"])
+
     def test_text_output_lists_tests_and_command(self):
         r = subprocess.run([sys.executable, str(TOOL), "--root", str(self.root),
                             "--files", "lib/features/b/b.dart"], capture_output=True, text=True)

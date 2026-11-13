@@ -19,9 +19,10 @@ Theo `templates/conventions.md`: 4 khối (Chung · Theo stack · Bổ sung củ
 | "File loại X phải có class tên kết thúc Y" | `naming` `{in, class_regex}` | `*_bloc.dart` → `.*Bloc$` |
 | "File loại X phải nằm trong thư mục Y" | `location` `{pattern, must_be_under}` | `*_repository_impl.dart` dưới `lib/**/data/` |
 | "File không quá N dòng" | `max-lines` `{in, max}` | 400 |
-| "Hàm không quá N dòng" | `max-function-lines` `{in, max}` | 40 |
-| "Hàm không quá N tham số" | `max-params` `{in, max, constructors}` | 5; `constructors: false` bỏ qua constructor của data class |
+| "Hàm không quá N dòng" | `max-function-lines` `{in, max, allow_functions[]}` | 40 |
+| "Hàm không quá N tham số" | `max-params` `{in, max, constructors, allow_functions[]}` | 5; `constructors: false` bỏ qua constructor của data class; `allow_functions` tha đích danh, lý do ghi ở conventions.md |
 | "Không hardcode màu/icon/chuỗi" | `forbidden-pattern` `{in, regex, allow[], message}` | `Color\(0x` trừ `lib/core/theme/**` |
+| "Cấm X trừ khi có comment vì sao" | `forbidden-pattern` + `allow_with_comment: true` | `!` null-assertion: tha khi comment cuối dòng hoặc ngay dòng trên |
 | "Không comment quá nhiều" | `max-comment-ratio` `{in, max_ratio, min_lines}` | 0.15, bỏ qua file < 20 dòng |
 
 Khoá `exclude` ở cấp cao nhất: glob code sinh (`*.g.dart`, `*.freezed.dart`, `lib/l10n/gen/**`) — `conform.py`, `audit.py`, `affected.py` đều dùng chung danh sách này.

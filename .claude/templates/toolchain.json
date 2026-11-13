@@ -9,6 +9,7 @@
   "test_one": "<lệnh chạy một số file test, {files} = danh sách; vd: flutter test {files}>",
   "test_files": ["test/**"],
   "full_test_when": ["<glob đụng tới là phải chạy toàn bộ: pubspec.yaml, lib/core/di/**, lib/core/router/**, lib/core/theme/**, lib/l10n/**>"],
+  "affected_hubs": ["<file import gần hết app, lan tới thì dừng: lib/core/router/**, lib/core/di/**, lib/app.dart>"],
   "build": "<flutter build apk --debug | ./gradlew assembleDebug | xcodebuild build ...>",
   "codegen": "<để trống nếu không có; vd: dart run build_runner build -d>"
 }

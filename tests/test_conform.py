@@ -206,6 +206,19 @@ class NewRuleTypesTest(unittest.TestCase):
                              "regex": r"Color\(0x", "skip_strings": True})
         self.assertEqual([x["line"] for x in v], [3])
 
+    def test_allow_with_comment(self):
+        self.write("lib/core/bang.dart",
+                   "final a = x!.y;\n"
+                   "// x đã kiểm khác null ở dòng trên\n"
+                   "final b = x!.y;\n"
+                   "final c = x!.y; // guard ở build\n"
+                   "final d = 'http://x'; final e = z!.w;\n")
+        rule = {"id": "bang", "type": "forbidden-pattern", "in": "lib/core/**", "regex": r"\w!\.",
+                "allow_with_comment": True}
+        self.assertEqual([x["line"] for x in self.violations(rule)], [1, 5])   # '//' trong chuỗi không tính là comment
+        rule["allow_with_comment"] = False
+        self.assertEqual([x["line"] for x in self.violations(rule)], [1, 3, 4, 5])
+
     def test_max_function_lines_and_params(self):
         v = self.violations({"id": "fn", "type": "max-function-lines", "in": "lib/**", "max": 40},
                             {"id": "pr", "type": "max-params", "in": "lib/**", "max": 5})
@@ -218,6 +231,10 @@ class NewRuleTypesTest(unittest.TestCase):
         rule = {"id": "pr", "type": "max-params", "in": "lib/core/**", "max": 5}
         self.assertEqual(len(self.violations(dict(rule))), 1)
         self.assertEqual(self.violations(dict(rule, constructors=False)), [])
+
+    def test_allow_functions_exempts_by_name(self):
+        rule = {"id": "pr", "type": "max-params", "in": "lib/**", "max": 5, "allow_functions": ["big"]}
+        self.assertEqual(self.violations(rule), [])
 
     def test_no_sibling_import_both_directions(self):
         v = self.violations({"id": "sib", "type": "no-sibling-import", "base": "lib/features"})

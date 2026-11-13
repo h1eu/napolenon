@@ -228,9 +228,9 @@ Soi code theo `instructions/rules.json`. In `path:dòng: rule-id: thông điệp
 | `location` | `pattern`, `must_be_under` | file loại X phải nằm dưới thư mục Y |
 | `max-lines` | `in`, `max` | file quá dài |
 | `max-comment-ratio` | `in`, `max_ratio`, `min_lines` | quá nhiều comment |
-| `max-function-lines` | `in`, `max` | hàm quá dài |
-| `max-params` | `in`, `max`, `constructors` | hàm quá nhiều tham số (`constructors: false` để tha data class) |
-| `forbidden-pattern` | `in`, `regex`, `allow[]`, `message`, `skip_strings` | hardcode: mã màu, icon bộ khác, API cấm. Luôn bỏ dòng comment |
+| `max-function-lines` | `in`, `max`, `allow_functions[]` | hàm quá dài |
+| `max-params` | `in`, `max`, `constructors`, `allow_functions[]` | hàm quá nhiều tham số (`constructors: false` để tha data class; `allow_functions` tha đích danh) |
+| `forbidden-pattern` | `in`, `regex`, `allow[]`, `message`, `skip_strings`, `allow_with_comment` | hardcode: mã màu, icon bộ khác, API cấm. Luôn bỏ dòng comment; `allow_with_comment` tha dòng có comment vì sao |
 | `no-sibling-import` | `base`, `allow[]` | feature import feature khác — một rule thay cho N² rule |
 
 Khoá `exclude` (list glob) ở cấp cao nhất loại code sinh khỏi mọi rule; `audit.py` và `affected.py` dùng chung danh sách đó.
@@ -271,7 +271,7 @@ python3 .claude/tools/stack.py --check        # exit 1 khi manifest đổi mà s
 python3 .claude/tools/affected.py [--base HEAD] [--files a,b] [--max-ratio 0.6] [--json]
 ```
 
-File đổi (git diff + file chưa track) → ai import chúng bắc cầu → file test chạm tới → in lệnh chạy đúng nhóm test đó. Chạy **toàn bộ** khi: không có git hoặc mốc sai, file đổi chưa có trong đồ thị import (file mới), file đổi khớp `full_test_when` trong `toolchain.json` (pubspec, DI, router, theme, l10n), hoặc số test ảnh hưởng vượt `--max-ratio`. `state.py task done` gọi tool này; bước verify không dùng.
+File đổi (git diff + file chưa track) → ai import chúng bắc cầu → file test chạm tới → in lệnh chạy đúng nhóm test đó. Chạy **toàn bộ** khi: không có git hoặc mốc sai, file đổi chưa có trong đồ thị import (file mới), file đổi khớp `full_test_when` trong `toolchain.json` (pubspec, DI, router, theme, l10n), hoặc số test ảnh hưởng vượt `--max-ratio`. Lan tới file "tổng đài" (`affected_hubs` trong `toolchain.json`, vd router và DI; file code sinh luôn tính) thì dừng, không đi tiếp sang ai import nó — không thì sửa một màn sẽ kéo theo mọi test dựng cả app. `state.py task done` gọi tool này; bước verify không dùng.
 
 ### `report.py`
 

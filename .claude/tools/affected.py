@@ -10,6 +10,9 @@ toolchain.json dùng thêm (tuỳ chọn):
   "test_one":    lệnh chạy một số file, {files} = danh sách cách nhau khoảng trắng (mặc định "<test> {files}")
   "test_files":  glob file test (mặc định "**/*_test.*", "**/*Test.*", "**/*.spec.*", "test/**", "tests/**")
   "full_test_when": glob mà hễ đụng tới là chạy toàn bộ (pubspec, DI, router, theme, l10n, code sinh)
+  "affected_hubs":  glob file "tổng đài" import gần hết app (router, DI). Lan tới hub thì dừng, không đi tiếp
+                    sang ai import hub — nếu không, sửa một màn kéo theo mọi test dựng app. File code sinh
+                    (rules.json exclude) luôn là hub. Sửa chính hub → nên nằm trong full_test_when.
 """
 import argparse
 import json
@@ -21,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import audit  # noqa: E402
-from globs import match  # noqa: E402
+from globs import excluded_globs, match  # noqa: E402
 
 TOOLCHAIN_REL = Path(".claude/instructions/toolchain.json")
 TEST_GLOBS = ["**/*_test.*", "**/*Test.*", "**/*.spec.*", "**/*.test.*", "test/**", "tests/**"]
@@ -65,11 +68,15 @@ def dependents(root):
     return files, rev
 
 
-def closure(seeds, rev):
-    """Mọi file bắc cầu import seeds, kể cả seeds."""
+def closure(seeds, rev, hubs=()):
+    """Mọi file bắc cầu import seeds, kể cả seeds. Tới hub (không phải seed) thì ghi nhận nhưng không lan tiếp."""
+    seeds = set(seeds)
     seen, q = set(seeds), deque(seeds)
     while q:
-        for nxt in rev.get(q.popleft(), ()):
+        cur = q.popleft()
+        if cur not in seeds and any(match(cur, h) for h in hubs):
+            continue
+        for nxt in rev.get(cur, ()):
             if nxt not in seen:
                 seen.add(nxt); q.append(nxt)
     return seen
@@ -108,7 +115,8 @@ def plan(root, base, files_arg, max_ratio):
     if unknown:
         return whole(f"{unknown[0]} chưa có trong đồ thị import (file mới hoặc ngoài phạm vi)")
     all_tests = {f for f in files if is_test(f, test_globs)}
-    tests = sorted(f for f in closure([c for c in changed if c in known], rev) if f in all_tests)
+    hubs = list(tc.get("affected_hubs", [])) + excluded_globs(root)
+    tests = sorted(f for f in closure([c for c in changed if c in known], rev, hubs) if f in all_tests)
     if not one_cmd:
         return whole("toolchain.json chưa có lệnh test")
     if all_tests and len(tests) > len(all_tests) * max_ratio:

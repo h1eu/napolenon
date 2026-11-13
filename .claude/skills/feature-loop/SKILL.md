@@ -26,7 +26,7 @@ python3 .claude/tools/state.py feature step <tên> <bước>
 ```bash
 python3 .claude/tools/state.py task done <feature> <id>
 ```
-Lệnh tự làm, không tin lời ai: `conform.py` trên `--files` của task, rồi test theo diff (`affected.py` → `toolchain.json`).
+Lệnh tự làm, không tin lời ai: `conform.py` trên `--files` của task, rồi test theo diff (`affected.py` → `toolchain.json`; file router/DI khai ở `affected_hubs` để sửa một màn không kéo theo mọi test).
 - Trượt → in lý do, task vẫn `in_progress`. Sửa rồi chạy lại.
 - `--skip-tests` / `--skip-conform` chỉ khi người dùng đồng ý; lý do bị ghi vào `state.json` và hiện trong `/report`.
 - Sau khi done thì commit một commit cho task đó (`state.py` lưu sha làm mốc diff cho task sau). Chưa commit → task sau chạy test trên diff gộp, rộng hơn mức cần.

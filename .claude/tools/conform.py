@@ -8,10 +8,12 @@ Loại rule:
   forbidden-import {in, forbid[]}    naming {in, class_regex}
   location {pattern, must_be_under}  max-lines {in, max}
   max-comment-ratio {in, max_ratio, min_lines=20}  — tỉ lệ dòng comment / dòng không trống
-  forbidden-pattern {in, regex, allow[]?, message?, skip_strings?} — regex từng dòng code (luôn bỏ dòng comment;
-                     skip_strings=true thì bỏ cả nội dung chuỗi); allow = glob được miễn
+  forbidden-pattern {in, regex, allow[]?, message?, skip_strings?, allow_with_comment?} — regex từng dòng code
+                     (luôn bỏ dòng comment; skip_strings=true thì bỏ cả nội dung chuỗi); allow = glob được miễn;
+                     allow_with_comment=true thì tha dòng có comment cuối dòng hoặc comment ngay dòng trên (vì sao)
   max-function-lines {in, max}       max-params {in, max, constructors=true} — hàm có tên, xem funcs.py;
-                                     constructors=false bỏ qua constructor (data class nhiều field)
+                                     constructors=false bỏ qua constructor (data class nhiều field);
+                                     allow_functions = tên hàm được tha, ghi lý do ở conventions.md
   no-sibling-import {base, allow[]?} — file dưới base/<a>/ không import base/<b>/ (allow = tên thư mục dùng chung)
 Khoá 'exclude' (list glob) ở cấp cao nhất: file khớp bị bỏ qua mọi rule (code sinh: *.g.dart, *.freezed.dart).
 Glob dùng fnmatch trên đường dẫn tương đối root; '*' và '**' đều khớp qua '/'.
@@ -101,12 +103,24 @@ def sibling_of(rel, imp, base, pkg):
     return None
 
 
+def explained(lines, idx, mark):
+    """Dòng idx có comment "vì sao" cuối dòng, hoặc dòng không trống ngay trên là comment."""
+    if re.search(r"\s" + re.escape(mark) + r"\s*\S", lines[idx]):
+        return True
+    k = idx - 1
+    while k >= 0 and not lines[k].strip():
+        k -= 1
+    return k >= 0 and lines[k].strip().startswith(mark)
+
+
 def check_functions(rel, text, lang, rules, out):
     fn_rules = [r for r in rules if r["type"] in ("max-function-lines", "max-params") and match(rel, r["in"])]
     if not fn_rules:
         return
     for fn in find_functions(text, lang):
         for r in fn_rules:
+            if fn["name"] in r.get("allow_functions", []):
+                continue
             if r["type"] == "max-function-lines" and fn["lines"] > r["max"]:
                 out.append((rel, fn["line"], r["id"], f"hàm {fn['name']} {fn['lines']} dòng > {r['max']}"))
             elif r["type"] == "max-params" and fn["params"] > r["max"] and (r.get("constructors", True) or not fn["ctor"]):
@@ -146,12 +160,17 @@ def check_file(root, path, rules, pkg=None):
                 continue
             rx = re.compile(r["regex"])
             code = strip_code(text, lang).splitlines() if r.get("skip_strings") else None
-            for i, line in enumerate(text.splitlines(), 1):
+            lines = text.splitlines()
+            mark = LINE_COMMENT.get(lang, "//")
+            for i, line in enumerate(lines, 1):
                 stripped = line.strip()
-                if stripped.startswith(LINE_COMMENT.get(lang, "//")) or stripped.startswith("*"):
+                if stripped.startswith(mark) or stripped.startswith("*"):
                     continue
-                if rx.search(code[i - 1] if code else line):
-                    out.append((rel, i, r["id"], r.get("message") or f"khớp mẫu cấm: {r['regex']}"))
+                if not rx.search(code[i - 1] if code else line):
+                    continue
+                if r.get("allow_with_comment") and explained(lines, i - 1, mark):
+                    continue
+                out.append((rel, i, r["id"], r.get("message") or f"khớp mẫu cấm: {r['regex']}"))
         elif kind == "forbidden-import":
             for i, imp in find_imports(text, LANG_BY_EXT[path.suffix]):
                 if any(match(imp, f) for f in r["forbid"]):
