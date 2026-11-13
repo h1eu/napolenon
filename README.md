@@ -89,6 +89,7 @@ Kịch bản chạy tay đầy đủ 15 phút: [tests/smoke.md](tests/smoke.md).
 | `/setup-agents` | Đọc `instructions/` | `.claude/rules/*.md` theo path, `skills/project-new-feature`, `commands/project-*` cho tác vụ lặp, agent chỉ khi có lý do. Chạy lại được |
 | `/feature <tên> [bước]` | Làm một bước: spec → plan → build → verify → done | `docs/napoleon/features/<tên>/{spec,plan,verify}.md`, `state.json` |
 | `/status` | `state.py show` + journal | Không suy luận thêm |
+| `/stack` | `stack.py` đọc manifest + lockfile | `docs/napoleon/stack.md`: Flutter/Dart, Android (compile/target/minSdk, AGP, Kotlin, Gradle), iOS target, thư viện kèm phiên bản đang dùng và vai trò. Ghi chú của bạn bên dưới khối sinh được giữ |
 | `/report` | `report.py` | `reports/roadmap.html`, mọi số có ghi nguồn |
 | `/retro` | Tìm lỗi lặp ≥ 2 lần | Mỗi lỗi một chỗ chặn: test → rules.json → hook → rule → chữ |
 | `/sync-docs [feature]` | `docs/sources/` đổi sau khi đã có harness: `sources.py diff` so với mốc cuối (sha256 + git diff), liệt kê điểm lệch với `instructions/` và spec, hỏi bạn quyết từng điểm | Sửa đúng dòng lệch, ADR khi giữ/đổi kiến trúc, task sửa cho feature đang build, mốc mới trong `state.json` |
@@ -153,7 +154,7 @@ Trong repo này:
 .claude/
 ├── CLAUDE.md                 lõi, luôn nạp
 ├── settings.json             5 hook
-├── commands/                 8 lệnh
+├── commands/                 9 lệnh
 ├── skills/
 │   ├── napoleon-core/        phân vai, file ở đâu, tool nào khi nào
 │   ├── architecture-interview/   phỏng vấn + references/ (clean, MVI, BLoC, MVVM, DI, navigation, testing)
@@ -163,7 +164,7 @@ Trong repo này:
 │   ├── verifying/            3 lớp
 │   └── using-codegraph/      câu hỏi → tool
 ├── agents/                   verifier.md (đối chiếu spec) · bug-hunter.md (săn lỗi vận hành)
-├── tools/                    state.py conform.py audit.py affected.py report.py sources.py
+├── tools/                    state.py conform.py audit.py affected.py stack.py report.py sources.py
 │                             guard.py (hook) + funcs.py globs.py cgdb.py imports.py + 3 hook .sh
 ├── templates/                khuôn cho mọi file sinh ra
 ├── instructions/             (trống) /start-build sinh
@@ -183,7 +184,7 @@ Trong dự án sau khi dùng:
 .claude/skills/project-*/     skill riêng dự án (có dấu generated)
 .claude/commands/project-*.md lệnh cho tác vụ lặp của dự án (có dấu generated)
 docs/sources/                 TÀI LIỆU BẠN ĐƯA: prd/ api/ design/ — tool chỉ đọc
-docs/napoleon/                ĐANG Ở ĐÂU: state.json, journal.md, codebase-report.md,
+docs/napoleon/                ĐANG Ở ĐÂU: state.json, journal.md, codebase-report.md, stack.md,
                               features/<tên>/{brief,spec,plan,verify}.md
 reports/roadmap.html          sinh bởi report.py, gitignore
 .codegraph/                   index codegraph, gitignore
@@ -255,6 +256,15 @@ Nguồn cạnh file → file:
 
 Output luôn ghi `source:` và các `ghi chú:` (ngôn ngữ chưa resolve, Kotlin/Swift không tính mồ côi từ scan, dương tính giả mồ côi từ codegraph do DI/expect-actual). Không trộn hai nguồn.
 
+### `stack.py`
+
+```bash
+python3 .claude/tools/stack.py [--no-probe]   # sinh/cập nhật docs/napoleon/stack.md
+python3 .claude/tools/stack.py --check        # exit 1 khi manifest đổi mà stack.md chưa theo
+```
+
+"README kỹ thuật" của dự án, sinh từ `pubspec.yaml/.lock`, `.fvmrc`, Gradle (`build.gradle*`, `settings.gradle*`, `libs.versions.toml`, gradle wrapper), Xcode (`project.pbxproj`, `Podfile(.lock)`, `Package.resolved`), `package.json/-lock`, `pyproject.toml`/`requirements.txt`. Mỗi thư viện có cột **Khai báo** (constraint), **Đang dùng** (từ lockfile — phiên bản để tra context7) và **Vai trò** (HTTP, DI, state…) để agent thấy đã có thư viện cho việc đó. Không ghi giờ sinh: chạy lại khi không đổi gì thì file không đổi. Flutter chưa ghim bằng `.fvmrc` thì lấy từ `flutter --version` và ghi rõ nguồn. `/map-codebase` và `/start-build` gọi tool này; hook SessionStart thêm một dòng khi `stack.md` cũ; lớp Máy của verify chạy `--check`.
+
 ### `affected.py`
 
 ```bash
@@ -315,7 +325,7 @@ Quy ước có hai tầng:
 tests/run.sh
 ```
 
-Chạy unittest (stdlib) cho 6 tool (`state`, `conform`, `audit`, `affected`, `report`, `funcs`) + `test_docs.py` (frontmatter, độ dài, dấu generated, YAML-safe, nhãn quy ước, agent khai đủ tool MCP) + bash test cho hooks (gồm `guard.py`) và `install.sh`. Fixture: `tests/fixtures/flutter_mini` (6 file Dart, mỗi loại rule một vi phạm, một cycle) và DB codegraph giả.
+Chạy unittest (stdlib) cho 7 tool (`state`, `conform`, `audit`, `affected`, `stack`, `report`, `funcs`) + `test_docs.py` (frontmatter, độ dài, dấu generated, YAML-safe, nhãn quy ước, agent khai đủ tool MCP) + bash test cho hooks (gồm `guard.py`) và `install.sh`. Fixture: `tests/fixtures/flutter_mini` (6 file Dart, mỗi loại rule một vi phạm, một cycle) và DB codegraph giả.
 
 Quy ước khi sửa bộ:
 - Test trước, code sau. Mọi tool, hook, install đều có test chạy được không cần codegraph thật.

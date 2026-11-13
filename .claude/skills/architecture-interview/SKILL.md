@@ -17,7 +17,7 @@ Mục tiêu: sau phỏng vấn, mọi phiên sau đều biết dự án này xâ
 ## Tám chủ đề, theo thứ tự
 
 1. **Mục tiêu & phạm vi.** Sản phẩm làm gì, cho ai, v1 gồm gì, không gồm gì. Câu mẫu: "Trong tài liệu có N màn hình, v1 lấy hết hay nhóm nào trước?"
-2. **Stack & ràng buộc.** Ngôn ngữ, framework, version tối thiểu, nền tảng, thư viện bắt buộc/cấm, backend có sẵn chưa. Câu mẫu: "Flutter version nào? Có package nào công ty bắt buộc dùng?"
+2. **Stack & ràng buộc.** Ngôn ngữ, framework, version tối thiểu, nền tảng, thư viện bắt buộc/cấm, backend có sẵn chưa. Dự án có sẵn → chạy `stack.py` trước và chỉ hỏi phần manifest không trả lời được (thư viện cấm, lý do chọn, có ghim SDK không). Câu mẫu: "Flutter version nào? Có package nào công ty bắt buộc dùng?"
 3. **Kiến trúc tầng.** Tham khảo `references/layered-clean.md`. Câu mẫu: "Tách presentation / domain / data đầy đủ, hay bỏ domain cho app nhỏ?"
 4. **Quản lý state.** Tham khảo `references/mvi.md`, `bloc.md`, `mvvm.md` theo stack. Câu mẫu: "Một Bloc cho mỗi màn hình, hay theo feature?"
 4b. **Trạng thái dùng chung.** Liệt kê state nhiều màn hình cùng đọc (auth, premium, config, network, giỏ hàng…). Mỗi cái chốt **một owner** và cách phát ra (Flow/Stream/Listenable). Logic nghiệp vụ lặp ở nhiều nơi → chốt tên manager và chỗ đặt. Kết quả: hai bảng trong `architecture.md` ("Nguồn sự thật dùng chung", "Logic tái dùng"). Câu mẫu: "Premium có mấy nơi đọc? Ai là nơi duy nhất được ghi?"

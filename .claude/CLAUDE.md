@@ -6,11 +6,13 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 1. Có `.claude/instructions/project.md` → đọc nó trước. Chưa có → dự án chưa `/start-build`.
 2. Chạy `python3 .claude/tools/state.py show --brief` để biết đang ở feature nào, bước nào, task nào dở.
 3. Không đọc toàn bộ `instructions/`. Rule theo path trong `.claude/rules/` tự nạp phần cần khi sửa file.
+4. Cần biết thư viện, phiên bản, SDK, minSdk/iOS target → đọc `docs/napoleon/stack.md` (sinh từ manifest bằng `/stack`), không đoán.
 
 ## Quy tắc cứng
 - **Sửa file nguồn chỉ bằng Write/Edit.** Không `cat >`, `sed -i`, `tee`, script python ghi file. Hook `guard.py` chặn; cần thật thì đặt `NAPOLEON_ALLOW_BASH_WRITES=1` và nói rõ vì sao.
 - **Codegraph trước grep.** Tìm symbol, file, ai gọi ai, ảnh hưởng khi sửa → `codegraph_*`. Grep chỉ cho chuỗi văn bản thuần (string literal, log, config). Xem skill `using-codegraph`.
-- **Tra doc, không đoán.** Dùng API thư viện ngoài lần đầu trong phiên → context7 (`resolve-library-id` → `query-docs`), đúng version trong pubspec/gradle/package.json.
+- **Tra doc, không đoán.** Dùng API thư viện ngoài lần đầu trong phiên → context7 (`resolve-library-id` → `query-docs`), đúng phiên bản cột "Đang dùng" trong `docs/napoleon/stack.md`.
+- **Không thêm thư viện thứ hai cho cùng một việc.** Cột "Vai trò" trong `stack.md` đã có thư viện lo → dùng nó. Muốn thêm/nâng thư viện → hỏi, rồi chạy `/stack`.
 - **Trạng thái chỉ qua `state.py`.** Không sửa tay `docs/napoleon/state.json` (hook chặn). Không ghi tiến độ vào nơi khác.
 - **Đóng task bằng `state.py task done`.** Lệnh tự chạy `conform.py` + test theo diff; trượt thì task không done. Không tự tuyên bố xong.
 - **Số liệu chỉ qua tool.** `audit.py`, `conform.py`, `report.py`. Không gõ tay con số vào báo cáo. Muốn thêm số → sửa tool.
@@ -33,6 +35,7 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 | `/setup-agents` | Sau `/start-build`, hoặc khi kiến trúc đổi. Sinh rule/skill/agent riêng dự án. |
 | `/feature <tên> [bước]` | Làm một feature. Không truyền bước → bước kế tiếp. |
 | `/status` | Mở phiên mới, muốn biết đang ở đâu. |
+| `/stack` | Thêm/nâng thư viện hoặc SDK. Sinh lại `docs/napoleon/stack.md`. |
 | `/report` | Sinh `reports/roadmap.html`. |
 | `/retro` | Thấy lỗi lặp lại. Biến nó thành test/rule/hook. |
 | `/sync-docs [feature]` | Tài liệu trong `docs/sources/` đổi. So với mốc cuối, hỏi bạn quyết từng điểm lệch. |
@@ -42,6 +45,7 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 - `python3 .claude/tools/conform.py` — soi code theo `instructions/rules.json`; `--coverage` soi chính bộ rule.
 - `python3 .claude/tools/audit.py` — cycles, ranh giới module, dep ngoài, file mồ côi.
 - `python3 .claude/tools/affected.py` — file đổi → test nào cần chạy.
+- `python3 .claude/tools/stack.py` — tech stack + phiên bản → `docs/napoleon/stack.md`; `--check` báo khi cũ.
 - `python3 .claude/tools/sources.py diff` — `docs/sources/` đổi gì so với mốc, harness trích dẫn ở đâu.
 - `python3 .claude/tools/report.py` — roadmap.html.
 
@@ -55,6 +59,6 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 - `.claude/instructions/` — cách làm việc trong dự án này (sinh bởi `/start-build`).
 - `.claude/rules/` — rule ngắn theo path (sinh bởi `/setup-agents`).
 - `docs/sources/{prd,api,design}/` — tài liệu bạn đưa; tool chỉ đọc.
-- `docs/napoleon/` — đang ở đâu: `state.json`, `journal.md`, `codebase-report.md`, `features/<tên>/{brief,spec,plan,verify}.md`.
+- `docs/napoleon/` — đang ở đâu: `state.json`, `journal.md`, `codebase-report.md`, `stack.md`, `features/<tên>/{brief,spec,plan,verify}.md`.
 - Spec/plan của feature **luôn** ở `docs/napoleon/features/<tên>/`, kể cả khi gọi superpowers brainstorming/writing-plans. Không tạo `docs/superpowers/` trong dự án.
 - `reports/` — sinh ra, không sửa tay.

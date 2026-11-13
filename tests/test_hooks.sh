@@ -128,6 +128,18 @@ echo "test_guard_bad_stdin_is_silent"
 OUT=$(echo 'không phải json' | python3 "$G"); RC=$?
 { [ "$RC" -eq 0 ] && [ -z "$OUT" ]; } || fail "stdin hỏng phải im lặng, exit 0 (rc=$RC, out=$OUT)"
 
+echo "test_session_start_warns_when_stack_stale"
+T=$(tmp); mkdir -p "$T/.claude"; cp -R "$TOOLS" "$T/.claude/tools"
+python3 "$TOOLS/state.py" --root "$T" init >/dev/null
+printf 'name: a\ndependencies:\n  dio: ^5.0.0\n' > "$T/pubspec.yaml"
+python3 "$TOOLS/stack.py" --root "$T" --no-probe >/dev/null
+OUT=$(CLAUDE_PROJECT_DIR="$T" bash "$TOOLS/session-start.sh")
+echo "$OUT" | grep -q "stack.md cũ" && fail "báo cũ khi chưa đổi gì: $OUT"
+printf 'name: a\ndependencies:\n  dio: ^5.9.0\n' > "$T/pubspec.yaml"
+OUT=$(CLAUDE_PROJECT_DIR="$T" bash "$TOOLS/session-start.sh")
+echo "$OUT" | grep -q "stack.md cũ" || fail "không báo stack.md cũ: $OUT"
+[ "$(echo "$OUT" | wc -l | tr -d ' ')" -le 5 ] || fail "quá 5 dòng"
+
 echo "test_settings_json_valid"
 python3 - "$ROOT/.claude/settings.json" <<'EOF' || fail "settings.json không hợp lệ"
 import json, sys

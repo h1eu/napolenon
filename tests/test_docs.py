@@ -48,7 +48,8 @@ class DocsTest(unittest.TestCase):
     def test_every_command_has_description(self):
         cmds = sorted(C.glob("commands/*.md"))
         self.assertEqual({c.stem for c in cmds},
-                         {"map-codebase", "start-build", "setup-agents", "feature", "status", "report", "retro", "sync-docs"})
+                         {"map-codebase", "start-build", "setup-agents", "feature", "status", "report", "retro", "sync-docs",
+                          "stack"})
         for c in cmds:
             fm = frontmatter(c)
             self.assertIsNotNone(fm, c)
@@ -106,7 +107,7 @@ class DocsTest(unittest.TestCase):
     def test_tools_present(self):
         names = {p.name for p in (C / "tools").glob("*.py")}
         self.assertEqual({"state.py", "conform.py", "audit.py", "report.py", "sources.py", "imports.py",
-                          "affected.py", "guard.py", "funcs.py", "globs.py", "cgdb.py"}, names)
+                          "affected.py", "guard.py", "funcs.py", "globs.py", "cgdb.py", "stack.py"}, names)
 
     def test_brief_template_exists(self):
         text = (C / "templates" / "brief.md").read_text(encoding="utf-8")

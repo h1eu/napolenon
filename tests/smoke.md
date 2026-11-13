@@ -10,10 +10,10 @@ flutter create smoke_app && cd smoke_app
 Kỳ vọng: in "đã copy N file", `.mcp.json` có codegraph + context7, `.gitignore` có `.codegraph/` và `reports/`.
 
 ## 1. Mở Claude Code
-Kỳ vọng: SessionStart hook im lặng (chưa có state). `/help` thấy 7 lệnh napoleon.
+Kỳ vọng: SessionStart hook im lặng (chưa có state). `/help` thấy 9 lệnh napoleon.
 
 ## 2. `/map-codebase`
-Kỳ vọng: `docs/napoleon/codebase-report.md` có `## Số liệu` với dòng `source: codegraph`, `## Nhận xét`, 3–5 câu hỏi.
+Kỳ vọng: `docs/napoleon/codebase-report.md` có `## Số liệu` với dòng `source: codegraph`, `## Nhận xét`, 3–5 câu hỏi; `docs/napoleon/stack.md` có bảng Flutter/Dart, Android, iOS và thư viện kèm cột "Đang dùng". Thêm một dòng dưới "Ghi chú", chạy `/stack` lại → dòng đó còn nguyên. Sửa constraint một gói trong `pubspec.yaml` → `stack.py --check` exit 1.
 
 ## 3. `/start-build Flutter + BLoC + clean architecture, app todo đơn giản: thêm/sửa/xoá việc, lọc theo trạng thái`
 Trả lời nhanh, chọn khuyến nghị. Kỳ vọng:

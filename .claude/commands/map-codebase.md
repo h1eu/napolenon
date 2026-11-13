@@ -1,5 +1,5 @@
 ---
-description: "Map dự án có sẵn: check codegraph → full scan → dependency audit → docs/napoleon/codebase-report.md"
+description: "Map dự án có sẵn: check codegraph → full scan → dependency audit → docs/napoleon/codebase-report.md + stack.md"
 ---
 Dùng skill `using-codegraph`.
 
@@ -11,4 +11,5 @@ Dùng skill `using-codegraph`.
    - `## Cấu trúc` — kết quả bước 2.
    - `## Nhận xét` — ≤ 10 dòng: pattern nhất quán hay lẫn lộn, cycles đáng ngại, module phình, chỗ không ai gọi.
    - `## Câu hỏi cho bạn` — 3–5 câu, chỗ agent không chắc (vd: "lib/legacy/ còn dùng không?").
-5. In đường dẫn report và câu: "Dự án chưa có `.claude/instructions/` → chạy `/start-build`, mình sẽ đọc report này thay vì hỏi từ đầu."
+5. `python3 .claude/tools/stack.py` → `docs/napoleon/stack.md` (tech stack + phiên bản thư viện). Thêm một dòng vào report: "Tech stack: xem `docs/napoleon/stack.md`".
+6. In đường dẫn report và câu: "Dự án chưa có `.claude/instructions/` → chạy `/start-build`, mình sẽ đọc report này thay vì hỏi từ đầu."

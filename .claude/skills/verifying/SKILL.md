@@ -13,6 +13,7 @@ Máy làm được thì máy làm. Verifier không nhận lời giải thích. N
 python3 -c "import json;t=json.load(open('.claude/instructions/toolchain.json'));print(t.get('test',''));print(t.get('build',''))"
 python3 .claude/tools/conform.py          # phải 0 vi phạm
 python3 .claude/tools/audit.py            # không thêm cycle, không vi phạm ranh giới so với codebase-report.md
+python3 .claude/tools/stack.py --check    # feature thêm/nâng thư viện → stack.md phải được sinh lại (/stack)
 ```
 Bước verify là chỗ duy nhất chạy toàn bộ test. Trong lúc build, `state.py task done` đã chạy test theo diff.
 Mỗi lệnh → một dòng `- [x]`/`- [ ]` trong `verify.md` mục `## Máy`, kèm kết quả tóm tắt (vd: `1811 test pass`, `0 vi phạm`).

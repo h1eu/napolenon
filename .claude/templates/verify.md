@@ -9,6 +9,7 @@ Ngày: <YYYY-MM-DD>
 - [ ] build — `<lệnh>` → <ok>
 - [ ] conform.py → <0 vi phạm>
 - [ ] audit.py → <cycles: n, vi phạm ranh giới: n>
+- [ ] stack.py --check → <khớp / đã chạy /stack>
 
 ## Verifier
 | # | Yêu cầu | Đạt | Bằng chứng |
