@@ -33,7 +33,7 @@ Chạy lần lượt 5 lần (mỗi lần một bước). Kỳ vọng:
 - spec: hỏi ≤ 3 câu, `features/todo-list/spec.md` có "Yêu cầu" đánh số.
 - plan: `codegraph status` được gọi; `plan.md` có task kèm file và test; `state.py show` thấy task `todo`.
 - build: sửa file bằng Write/Edit → hook in output `dart format`/`dart analyze`; thử `cat > lib/x.dart <<EOF` → bị `guard.py` chặn; `state.py task done` in dòng `conform:` và `test:` rồi mới chuyển `done`; thử task có lỗi conform → task **không** chuyển `done`.
-- verify: `verify.md` có 3 mục, agent verifier được gọi, bảng yêu cầu có bằng chứng `file:dòng`; `state.py verify todo-list pass` ghi được.
+- verify: `verify.md` có 4 mục, agent verifier và bug-hunter được gọi song song, mục "Săn lỗi" có bảng kịch bản, bảng yêu cầu có bằng chứng `file:dòng`; `state.py verify todo-list pass` ghi được.
 - done: `feature step todo-list done` chặn khi còn ô trống ngoài mục Người, qua được khi chỉ còn ô ở mục Người và in "N mục Người để pending"; `journal.md` có mục mới, `state.py show` thấy `[done]`.
 
 ## 6. Phiên mới

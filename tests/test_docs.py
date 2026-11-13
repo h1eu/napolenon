@@ -56,11 +56,14 @@ class DocsTest(unittest.TestCase):
 
     def test_agent_frontmatter(self):
         agents = sorted(C.glob("agents/*.md"))
-        self.assertEqual([a.stem for a in agents], ["verifier"])
-        fm = frontmatter(agents[0])
-        for k in ("name", "description", "tools"):
-            self.assertTrue(fm_field(fm, k), k)
-        self.assertLessEqual(len(fm_field(fm, "description").splitlines()), 3)
+        self.assertEqual([a.stem for a in agents], ["bug-hunter", "verifier"])
+        for a in agents:
+            fm = frontmatter(a)
+            for k in ("name", "description", "tools"):
+                self.assertTrue(fm_field(fm, k), (a, k))
+            self.assertEqual(fm_field(fm, "name"), a.stem)
+            self.assertLessEqual(len(fm_field(fm, "description").splitlines()), 3)
+            self.assertNotRegex(fm_field(fm, "tools"), r"\b(Write|Edit)\b", f"{a}: agent kiểm tra phải chỉ đọc")
 
     def test_conventions_template_common_block_is_filled(self):
         """Khối 'Chung' phải điền sẵn (không placeholder), các khối khác được phép có placeholder."""
@@ -153,8 +156,15 @@ class DocsTest(unittest.TestCase):
 
     def test_verify_template_sections(self):
         text = (C / "templates" / "verify.md").read_text(encoding="utf-8")
-        for h in ("## Máy", "## Verifier", "## Người"):
+        for h in ("## Máy", "## Verifier", "## Săn lỗi", "## Người"):
             self.assertIn(h, text)
+        self.assertLess(text.index("## Săn lỗi"), text.index("## Người"), "ô Săn lỗi phải nằm ngoài mục Người để chặn done")
+
+    def test_spec_template_has_second_time_scenarios(self):
+        text = (C / "templates" / "spec.md").read_text(encoding="utf-8")
+        self.assertIn("## Kịch bản lần hai", text)
+        for k in ("Gọi lại", "Mất mạng", "Xung đột", "Rời màn hình", "dùng chung"):
+            self.assertIn(k, text)
 
 
 if __name__ == "__main__":

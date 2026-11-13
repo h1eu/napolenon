@@ -29,5 +29,13 @@ Mỗi dòng một yêu cầu kiểm được. Verifier đối chiếu từng s�
 - <mạng lỗi → …>
 - <không có dữ liệu → …>
 
+## Kịch bản lần hai
+Mỗi dòng là một yêu cầu có test, đánh số nối tiếp mục "Yêu cầu". Không áp dụng thì ghi "không áp dụng — vì …".
+- Gọi lại khi lần trước chưa về (bấm hai lần, kéo làm mới khi đang tải) → <…>
+- Mất mạng rồi có lại → <màn hình tự hồi phục hay cần bấm gì>
+- Xung đột / lỗi rồi thử lại → <thay đổi chưa gửi của người dùng đi đâu>
+- Rời màn hình khi request còn bay → <…>
+- Tài nguyên dùng chung với feature khác (singleton, cache, khoá) → <feature nào, ai thắng>
+
 ## Câu hỏi đã chốt
 - <câu hỏi> → <trả lời của người dùng>

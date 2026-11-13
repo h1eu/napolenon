@@ -19,6 +19,13 @@ Ngày: <YYYY-MM-DD>
 - [ ] Quy ước không tự động: đạt
 - [ ] API ngoài đã tra doc
 
+## Săn lỗi
+| # | Mức | Lỗi | file:dòng | Kịch bản hỏng | Xử lý |
+|---|---|---|---|---|---|
+| 1 | | | | | <test tái hiện + sửa / followup #n> |
+
+- [ ] Không còn lỗi nặng chưa có test tái hiện
+
 ## Người
 Không chặn `done`. Tick sau bằng `state.py human <tên> tick <n>`.
 - [ ] <việc cụ thể 1, vd: màn hình login hiển thị đúng trên iPhone SE>

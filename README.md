@@ -111,6 +111,7 @@ Verify ba lớp, lớp nào máy làm được thì máy làm:
 
 1. **Máy** — format, analyze, **toàn bộ** test, build từ `toolchain.json`; `conform.py` 0 vi phạm; `audit.py` không thêm cycle, không vượt ranh giới. (Trong lúc build thì chỉ chạy test theo diff — xem `affected.py`.)
 2. **Agent `verifier`** — context riêng, chỉ đọc, nhận spec + diff, không nhận lời giải thích. Trả bảng từng yêu cầu đạt/chưa kèm `file:dòng`. Không bằng chứng = chưa đạt.
+   **Agent `bug-hunter`** chạy song song — không chấm spec mà săn kịch bản hỏng: cờ "đang bận" nuốt lần gọi thứ hai, hai lớp gặp nhau, mất mạng rồi có lại, xung đột rồi thử lại, stub trên đường chạy thật. Lỗi nặng → test tái hiện rồi mới sửa. Spec có sẵn mục "Kịch bản lần hai" để những chuyện này thành yêu cầu ngay từ đầu.
 3. **Bạn** — những gì máy và verifier không kiểm được (UI trên máy thật, cảm nhận). Mục này **không chặn** `done`: feature vẫn chốt được, mục Người nằm chờ bạn tick sau (`state.py human <tên> tick <n>`), `/report` đếm riêng.
 
 Hai chỗ chặn bằng code, không chặn bằng chữ:
@@ -142,7 +143,7 @@ Nằm trong [`.claude/CLAUDE.md`](.claude/CLAUDE.md), dưới 100 dòng, luôn n
 | Trạng thái và số liệu chỉ qua tool | `state.py`, `audit.py`, `report.py`; hook chặn Write/Edit vào `state.json` |
 | Task chỉ xong khi máy nói xong | `state.py task done` chạy `conform.py` + test theo diff trước khi đổi trạng thái |
 | Gọn: mô tả ≤ 3 dòng, chỉ phải làm / cấm | test `test_docs.py` ép |
-| Một vòng lặp chính; subagent chỉ khi cần song song, cô lập, hoặc phân quyền | bộ lõi có đúng một agent; `/setup-agents` phải ghi lý do khi sinh agent |
+| Một vòng lặp chính; subagent chỉ khi cần song song, cô lập, hoặc phân quyền | bộ lõi có đúng hai agent, đều chỉ đọc và context cô lập; `/setup-agents` phải ghi lý do khi sinh agent |
 
 ## Cấu trúc thư mục
 
@@ -161,7 +162,7 @@ Trong repo này:
 │   ├── feature-loop/         5 bước, điều kiện vào/ra
 │   ├── verifying/            3 lớp
 │   └── using-codegraph/      câu hỏi → tool
-├── agents/verifier.md
+├── agents/                   verifier.md (đối chiếu spec) · bug-hunter.md (săn lỗi vận hành)
 ├── tools/                    state.py conform.py audit.py affected.py report.py sources.py
 │                             guard.py (hook) + funcs.py globs.py cgdb.py imports.py + 3 hook .sh
 ├── templates/                khuôn cho mọi file sinh ra

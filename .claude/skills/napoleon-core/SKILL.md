@@ -22,7 +22,7 @@ description: Napoleon hoạt động thế nào, phân vai với superpowers, fi
 | Kiểm tra quy ước, phụ thuộc, báo cáo | napoleon `conform.py`, `audit.py`, `report.py` |
 | Chọn test cần chạy sau một thay đổi | napoleon `affected.py` (bước build); verify vẫn chạy toàn bộ |
 | Chặn ghi file nguồn bằng Bash, chặn sửa tay state.json | napoleon hook `guard.py` |
-| Kiểm tra độc lập sau build | napoleon agent `verifier` |
+| Kiểm tra độc lập sau build | napoleon agent `verifier` (đủ spec chưa) + `bug-hunter` (cái gì làm nó hỏng) |
 
 Napoleon không viết lại quy trình superpowers. Ở mỗi bước của `/feature`, nó gọi skill superpowers tương ứng.
 
@@ -48,7 +48,7 @@ Napoleon không viết lại quy trình superpowers. Ở mỗi bước của `/f
 - Mở phiên: `state.py show --brief`.
 - Trước plan: `codegraph status`; cũ → `codegraph sync`.
 - Đóng task build: `state.py task done` (tự chạy `conform.py` + test theo diff), rồi commit.
-- Bước verify: toolchain (format/analyze/test/build) → `conform.py` → `audit.py` → agent `verifier`.
+- Bước verify: toolchain (format/analyze/test/build) → `conform.py` → `audit.py` → agent `verifier` và `bug-hunter` chạy song song.
 - Bước done: `codegraph sync`, `state.py feature step <tên> done` (cổng đọc `verify.md`), `followup add` cho việc ADR hẹn lại, `state.py session note`.
 - Mục Người trong `verify.md`: người dùng tick sau bằng `state.py human <tên> tick <n>`; không chặn done, không tự tick.
 - Muốn số liệu: `report.py`. Không gõ tay.
