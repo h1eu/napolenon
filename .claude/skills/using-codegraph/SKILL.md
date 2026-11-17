@@ -19,9 +19,18 @@ Index nằm ở `.codegraph/codegraph.db`, tự sync khi file đổi (daemon). M
 | "Sửa Y thì ảnh hưởng tới đâu?" (dùng ở bước plan, mỗi task) | `codegraph_impact` |
 | "Gom context để làm task Z" (một lần đầu bước build) | `codegraph_context` |
 | "Index còn mới không?" | `codegraph_status` |
-| "Chuỗi 'Đăng nhập thất bại' ở file nào?" | **Grep** — chỉ trường hợp này và chuỗi văn bản thuần tương tự |
+| "Chuỗi 'Đăng nhập thất bại' ở file nào?" | **Grep** — chuỗi văn bản thuần |
+| "Dòng nào trong file X nhắc tới Y?" | **Grep** trong đúng file đó |
+| "Chỗ nào gọi API thư viện ngoài (`showModalBottomSheet`…)?" | **Grep** — index chỉ có symbol của dự án |
 
 Một câu trả lời cần nhiều bước → bắt đầu bằng `explore`, rồi đào sâu bằng `node`/`callers`. Không grep tên class để tìm định nghĩa.
+
+## Tool chưa thấy, hoặc đang ở Bash
+- Tool `mcp__codegraph__*` chưa có trong danh sách → nạp một lần: ToolSearch `select:mcp__codegraph__codegraph_search,mcp__codegraph__codegraph_callers,mcp__codegraph__codegraph_impact`.
+- Chỉ cần biết symbol định nghĩa ở đâu → Bash `codegraph query <tên>`.
+
+## Cổng chặn grep
+`guard.py` từ chối `grep -r`/`rg`/tool Grep khi mẫu tìm là đúng một tên symbol có trong index và phạm vi là thư mục code. Bị chặn → dùng lệnh ghi trong lời chặn. Cần tìm tên đó như văn bản (comment, chuỗi, file chưa index) → Bash với `NAPOLEON_ALLOW_GREP=1` đặt trước lệnh grep.
 
 ## Trước bước plan
 ```bash

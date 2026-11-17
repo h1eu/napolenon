@@ -10,7 +10,7 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 
 ## Quy tắc cứng
 - **Sửa file nguồn chỉ bằng Write/Edit.** Không `cat >`, `sed -i`, `tee`, script python ghi file. Hook `guard.py` chặn; cần thật thì đặt `NAPOLEON_ALLOW_BASH_WRITES=1` và nói rõ vì sao.
-- **Codegraph trước grep.** Tìm symbol, file, ai gọi ai, ảnh hưởng khi sửa → `codegraph_*`. Grep chỉ cho chuỗi văn bản thuần (string literal, log, config). Xem skill `using-codegraph`.
+- **Codegraph trước grep.** Tìm symbol, file, ai gọi ai, ảnh hưởng khi sửa → `codegraph_*` (chưa thấy tool → nạp qua ToolSearch), hoặc Bash `codegraph query <tên>`. Grep cho chuỗi văn bản thuần (string literal, log, config) và để xem trong một file đã biết. Hook `guard.py` chặn grep đệ quy tên symbol trong thư mục code. Xem skill `using-codegraph`.
 - **Tra doc, không đoán.** Dùng API thư viện ngoài lần đầu trong phiên → context7 (`resolve-library-id` → `query-docs`), đúng phiên bản cột "Đang dùng" trong `docs/napoleon/stack.md`.
 - **Không thêm thư viện thứ hai cho cùng một việc.** Cột "Vai trò" trong `stack.md` đã có thư viện lo → dùng nó. Muốn thêm/nâng thư viện → hỏi, rồi chạy `/stack`.
 - **Trạng thái chỉ qua `state.py`.** Không sửa tay `docs/napoleon/state.json` (hook chặn). Không ghi tiến độ vào nơi khác.

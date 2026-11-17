@@ -118,6 +118,63 @@ echo "$OUT" | grep -q "state.py" || fail "thông báo không chỉ sang state.py
 OUT=$(pre Edit '{"file_path":"lib/a.dart"}')
 [ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn nhầm Edit file nguồn: $OUT"
 
+echo "test_guard_blocks_recursive_symbol_grep"
+CG=$(tmp); mkdir -p "$CG/.codegraph" "$CG/lib" "$CG/bin"; printf '#!/bin/sh\n' > "$CG/bin/codegraph"; chmod +x "$CG/bin/codegraph"
+python3 - "$CG/.codegraph/codegraph.db" <<'EOF'
+import sqlite3, sys
+con = sqlite3.connect(sys.argv[1])
+con.execute("CREATE TABLE nodes (name TEXT, kind TEXT)")
+con.executemany("INSERT INTO nodes VALUES (?, ?)",
+                [(n, "class") for n in ("CompareTray", "ImageCompressor", "MeRepository", "MarketSource")]
+                + [("criterionLabel", "function"), ("showModalBottomSheet", "import")])
+con.commit()
+EOF
+cg_pre() { printf '{"tool_name":"%s","tool_input":%s}' "$1" "$2" | CLAUDE_PROJECT_DIR="$CG" PATH="$CG/bin:$PATH" python3 "$G"; }
+while IFS= read -r CMD; do
+  [ -n "$CMD" ] || continue
+  OUT=$(cg_pre Bash "$(json_cmd "$CMD")")
+  [ "$(echo "$OUT" | decision)" = "deny" ] || fail "không chặn: $CMD → $OUT"
+  echo "$OUT" | grep -q "codegraph query" || fail "lời chặn thiếu lệnh thay thế: $CMD"
+done <<'CASES'
+grep -rn CompareTray lib
+grep -rn "criterionLabel" lib test
+grep -rIl "ImageCompressor" .
+rg MeRepository
+cd app && grep -rn --include="*.dart" MarketSource lib
+CASES
+OUT=$(cg_pre Grep '{"pattern":"CompareTray"}')
+[ "$(echo "$OUT" | decision)" = "deny" ] || fail "không chặn tool Grep tìm symbol: $OUT"
+OUT=$(cg_pre Grep '{"pattern":"CompareTray","path":"lib"}')
+[ "$(echo "$OUT" | decision)" = "deny" ] || fail "không chặn tool Grep tìm symbol trong lib: $OUT"
+
+echo "test_guard_allows_non_symbol_grep"
+while IFS= read -r CMD; do
+  [ -n "$CMD" ] || continue
+  OUT=$(cg_pre Bash "$(json_cmd "$CMD")")
+  [ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn nhầm: $CMD → $OUT"
+done <<'CASES'
+grep -n "bootApp" -B3 -A15 test/app_test.dart
+grep -rn "Đăng nhập thất bại" lib
+grep -rn "class .*Repository" lib
+grep -rn CompareTray docs
+grep -rni compareTray lib
+grep -rn Future lib
+grep -rn showModalBottomSheet lib
+grep -rn matchesGoldenFile test
+flutter test | grep CompareTray
+git log --oneline | grep -c FoodRepository
+NAPOLEON_ALLOW_GREP=1 grep -rn CompareTray lib
+grep -rn "CompareTray\|FoodTray" lib
+CASES
+OUT=$(cg_pre Grep '{"pattern":"CompareTray","path":"lib/a.dart"}')
+[ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn nhầm tool Grep trong một file: $OUT"
+OUT=$(cg_pre Grep '{"pattern":"TODO: sửa sau"}')
+[ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn nhầm tool Grep tìm văn bản: $OUT"
+
+echo "test_guard_symbol_grep_allowed_without_index"
+OUT=$(pre Bash "$(json_cmd 'grep -rn CompareTray lib')")
+[ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn khi dự án chưa có .codegraph: $OUT"
+
 echo "test_guard_post_nudges_codegraph_only_for_symbol_search"
 OUT=$(printf '{"tool_name":"Bash","tool_input":%s}' "$(json_cmd 'grep -rn CompareTray lib')" | python3 "$G" --post)
 echo "$OUT" | grep -q "codegraph" || fail "không nhắc codegraph: $OUT"
@@ -149,7 +206,7 @@ assert {"PreToolUse", "PostToolUse", "Stop", "SessionStart"} <= set(h), h.keys()
 assert h["PostToolUse"][0]["matcher"] == "Edit|Write"
 assert "check.sh" in h["PostToolUse"][0]["hooks"][0]["command"]
 assert "guard.py" in h["PreToolUse"][0]["hooks"][0]["command"]
-assert "Bash" in h["PreToolUse"][0]["matcher"] and "Write" in h["PreToolUse"][0]["matcher"]
+assert {"Bash", "Grep", "Write"} <= set(h["PreToolUse"][0]["matcher"].split("|"))
 assert any("guard.py --post" in x["hooks"][0]["command"] for x in h["PostToolUse"])
 assert "codegraph-sync.sh" in h["Stop"][0]["hooks"][0]["command"]
 assert "session-start.sh" in h["SessionStart"][0]["hooks"][0]["command"]

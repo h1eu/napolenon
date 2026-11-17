@@ -130,7 +130,7 @@ Nằm trong [`.claude/CLAUDE.md`](.claude/CLAUDE.md), dưới 100 dòng, luôn n
 
 | Quy tắc | Cơ chế ép |
 |---|---|
-| Codegraph trước grep | skill `using-codegraph`; `/map-codebase` và bước plan gọi codegraph; hook `guard.py --post` nhắc khi grep tên symbol |
+| Codegraph trước grep | skill `using-codegraph`; `/map-codebase` và bước plan gọi codegraph; hook `guard.py` chặn grep đệ quy tên symbol có trong index, `guard.py --post` nhắc các lần còn lọt |
 | Sửa file nguồn chỉ bằng Write/Edit | hook `guard.py` chặn `cat >`, `sed -i`, `tee`, python ghi file; mở lối bằng `NAPOLEON_ALLOW_BASH_WRITES=1` |
 | Mỗi quy ước phải có chỗ chặn hoặc nhãn `[tay]` | `conform.py --coverage`; `/setup-agents` không kết thúc khi còn lỗi |
 | Tra doc trước khi dùng API lạ | context7 trong `.mcp.json`; verifier có mục "API chưa tra doc" |
@@ -284,8 +284,8 @@ Trong `.claude/settings.json`. Chỉ `guard.py` chặn; các hook còn lại lu�
 
 | Event | Script | Làm gì |
 |---|---|---|
-| `PreToolUse` (Bash\|Write\|Edit…) | `guard.py` | **chặn**: ghi file nguồn bằng Bash (`cat >`, `sed -i`, `tee`, python ghi file), và Write/Edit thẳng vào `state.json`. Mở lối: `NAPOLEON_ALLOW_BASH_WRITES=1` |
-| `PostToolUse` (Bash\|Grep) | `guard.py --post` | grep tên symbol trong thư mục code → nhắc dùng codegraph. Không chặn |
+| `PreToolUse` (Bash\|Grep\|Write\|Edit…) | `guard.py` | **chặn**: ghi file nguồn bằng Bash (`cat >`, `sed -i`, `tee`, python ghi file), Write/Edit thẳng vào `state.json`, và grep đệ quy đúng một tên symbol có trong index codegraph (lời chặn kèm `codegraph query` và tool MCP cần nạp). Mở lối: `NAPOLEON_ALLOW_BASH_WRITES=1`, `NAPOLEON_ALLOW_GREP=1` đặt trước lệnh grep |
+| `PostToolUse` (Bash\|Grep) | `guard.py --post` | các lần grep tên symbol còn lọt cổng → nhắc dùng codegraph. Không chặn |
 | `PostToolUse` (Edit\|Write) | `check.sh` | format rồi analyze file vừa sửa theo `toolchain.json`; output trả về Claude qua `additionalContext`. Không có `toolchain.json` → im lặng |
 | `Stop` | `codegraph-sync.sh` | có file đổi và có codegraph → `codegraph sync` |
 | `SessionStart` | `session-start.sh` | in ≤ 5 dòng từ `state.py show --brief` |
