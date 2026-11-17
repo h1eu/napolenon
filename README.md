@@ -76,7 +76,7 @@ cd /đường/dẫn/dự/án && codegraph init
 /feature <tên>
 ```
 
-**Mỗi ngày**: mở Claude Code → hook in 5 dòng "đang ở đâu" → `/feature <tên>` làm bước kế tiếp. Quên thì `/status`. Muốn số liệu thì `/report`. Thấy lỗi lặp thì `/retro`. Tài liệu trong `docs/sources/` đổi thì `/sync-docs`.
+**Mỗi ngày**: mở Claude Code → hook in 5 dòng "đang ở đâu" → `/feature <tên>` làm bước kế tiếp. Quên thì `/where`. Muốn số liệu thì `/report`. Thấy lỗi lặp thì `/retro`. Tài liệu trong `docs/sources/` đổi thì `/sync-docs`.
 
 Kịch bản chạy tay đầy đủ 15 phút: [tests/smoke.md](tests/smoke.md).
 
@@ -88,7 +88,7 @@ Kịch bản chạy tay đầy đủ 15 phút: [tests/smoke.md](tests/smoke.md).
 | `/start-build [mô tả \| đường dẫn tài liệu]` | Đọc `docs/sources/`, phỏng vấn 8 chủ đề một câu một lần. Quy ước không hỏi từng cái: baseline chung + theo stack, bạn chỉ bổ sung | `.claude/instructions/` (project, architecture, conventions, module-map, rules.json, toolchain.json, ADR), khung thư mục rỗng, `features.md`, `state.json` |
 | `/setup-agents` | Đọc `instructions/` | `.claude/rules/*.md` theo path, `skills/project-new-feature`, `commands/project-*` cho tác vụ lặp, agent chỉ khi có lý do. Chạy lại được |
 | `/feature <tên> [bước]` | Làm một bước: spec → plan → build → verify → done | `docs/napoleon/features/<tên>/{spec,plan,verify}.md`, `state.json` |
-| `/status` | `state.py show` + journal | Không suy luận thêm |
+| `/where` | `state.py show` + journal | Không suy luận thêm. Không đặt tên `/status` vì trùng lệnh có sẵn của Claude Code |
 | `/stack` | `stack.py` đọc manifest + lockfile | `docs/napoleon/stack.md`: Flutter/Dart, Android (compile/target/minSdk, AGP, Kotlin, Gradle), iOS target, thư viện kèm phiên bản đang dùng và vai trò. Ghi chú của bạn bên dưới khối sinh được giữ |
 | `/report` | `report.py` | `reports/roadmap.html`, mọi số có ghi nguồn |
 | `/retro` | Tìm lỗi lặp ≥ 2 lần | Mỗi lỗi một chỗ chặn: test → rules.json → hook → rule → chữ |
@@ -120,9 +120,9 @@ Hai chỗ chặn bằng code, không chặn bằng chữ:
 - `state.py task done` tự chạy `conform.py` trên file của task và test theo diff; trượt thì task không được đánh done.
 - `state.py feature step <tên> done` đọc `verify.md`: còn ô trống ngoài mục "Người" thì không cho sang `done`.
 
-Verify trượt → `state.py verify <tên> fail --issue <nhãn>`; nhãn lặp ở ≥ 2 feature thì tool nhắc `/retro` để biến nó thành rule. Việc ADR hẹn làm sau → `state.py followup add`, hiện ở `/status` và `/report`.
+Verify trượt → `state.py verify <tên> fail --issue <nhãn>`; nhãn lặp ở ≥ 2 feature thì tool nhắc `/retro` để biến nó thành rule. Việc ADR hẹn làm sau → `state.py followup add`, hiện ở `/where` và `/report`.
 
-Trạng thái chỉ sửa qua `state.py` (hook chặn sửa tay). Mở phiên mới chỉ cần `/status`.
+Trạng thái chỉ sửa qua `state.py` (hook chặn sửa tay). Mở phiên mới chỉ cần `/where`.
 
 ## Quy tắc Claude phải theo
 

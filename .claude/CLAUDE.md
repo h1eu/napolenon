@@ -34,7 +34,7 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 | `/start-build` | Dự án mới hoặc chưa có `instructions/`. Phỏng vấn → sinh chỉ dẫn + khung thư mục. |
 | `/setup-agents` | Sau `/start-build`, hoặc khi kiến trúc đổi. Sinh rule/skill/agent riêng dự án. |
 | `/feature <tên> [bước]` | Làm một feature. Không truyền bước → bước kế tiếp. |
-| `/status` | Mở phiên mới, muốn biết đang ở đâu. |
+| `/where` | Mở phiên mới, muốn biết đang ở đâu. |
 | `/stack` | Thêm/nâng thư viện hoặc SDK. Sinh lại `docs/napoleon/stack.md`. |
 | `/report` | Sinh `reports/roadmap.html`. |
 | `/retro` | Thấy lỗi lặp lại. Biến nó thành test/rule/hook. |

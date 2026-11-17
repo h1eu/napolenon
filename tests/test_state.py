@@ -166,6 +166,16 @@ class GateTest(unittest.TestCase):
         self.assertIn("conform", r.stderr)
         self.assertEqual(self.status(tid)["status"], "todo")
 
+    def test_conform_violation_skips_tests(self):
+        self.rules({"id": "max-0", "type": "max-lines", "in": "lib/**", "max": 0})
+        self.toolchain({"test": "touch ran.txt", "test_one": "touch ran.txt", "test_files": ["test/**"]})
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        tid = self.add_task()
+        r = run(self.root, "task", "done", "login", tid)
+        self.assertEqual(r.returncode, 1)
+        self.assertFalse((self.root / "ran.txt").exists())
+        self.assertIn("test: chưa chạy", r.stdout)
+
     def test_failing_test_blocks_done(self):
         self.toolchain({"test": "exit 1", "test_one": "exit 1", "test_files": ["test/**"]})
         write(self.root, "lib/a.dart", "class A { int x = 1; }\n")

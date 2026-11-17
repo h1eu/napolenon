@@ -340,6 +340,9 @@ def cmd_task(root, a):
             failed += [] if ok else [f"conform: {msg}"]
         if a.skip_tests:
             checks["test"] = "bỏ qua theo cờ --skip-tests"
+        elif failed:
+            # bộ test đầy đủ mất cả phút; conform trượt thì đằng nào cũng phải chạy lại
+            checks["test"] = "chưa chạy (conform trượt trước)"
         else:
             base = last_commit(f, a.id) or "HEAD"
             ok, msg = gate_tests(root, base, a.timeout)

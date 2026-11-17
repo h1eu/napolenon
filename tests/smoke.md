@@ -37,7 +37,7 @@ Chạy lần lượt 5 lần (mỗi lần một bước). Kỳ vọng:
 - done: `feature step todo-list done` chặn khi còn ô trống ngoài mục Người, qua được khi chỉ còn ô ở mục Người và in "N mục Người để pending"; `journal.md` có mục mới, `state.py show` thấy `[done]`.
 
 ## 6. Phiên mới
-Đóng, mở lại Claude Code. Kỳ vọng: hook in ≤ 5 dòng trạng thái. `/status` in state + journal.
+Đóng, mở lại Claude Code. Kỳ vọng: hook in ≤ 5 dòng trạng thái. `/where` in state + journal.
 
 ## 7. `/report`
 Kỳ vọng: `reports/roadmap.html` mở được, số feature/task khớp `state.py show`, mục Commit "không có dữ liệu" nếu chưa `git init`, mỗi bảng có "nguồn: ...", mục Verify tách "máy + verifier" với "người chờ", có mục "Việc hẹn lại".
