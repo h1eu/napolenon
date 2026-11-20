@@ -118,6 +118,11 @@ echo "$OUT" | grep -q "state.py" || fail "thông báo không chỉ sang state.py
 OUT=$(pre Edit '{"file_path":"lib/a.dart"}')
 [ "$(echo "$OUT" | decision)" = "allow" ] || fail "chặn nhầm Edit file nguồn: $OUT"
 
+echo "test_guard_blocks_manual_implementation_edit"
+OUT=$(pre Write '{"file_path":"docs/napoleon/implementation.md"}')
+[ "$(echo "$OUT" | decision)" = "deny" ] || fail "không chặn sửa tay implementation.md: $OUT"
+echo "$OUT" | grep -q "implementation.py" || fail "thông báo không chỉ sang implementation.py"
+
 echo "test_guard_blocks_recursive_symbol_grep"
 CG=$(tmp); mkdir -p "$CG/.codegraph" "$CG/lib" "$CG/bin"; printf '#!/bin/sh\n' > "$CG/bin/codegraph"; chmod +x "$CG/bin/codegraph"
 python3 - "$CG/.codegraph/codegraph.db" <<'EOF'

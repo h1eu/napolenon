@@ -27,6 +27,8 @@ from cgdb import open_db  # noqa: E402
 from imports import LANG_BY_EXT  # noqa: E402
 
 STATE_REL = "docs/napoleon/state.json"
+IMPL_REL = "docs/napoleon/implementation.md"
+DENY_IMPL = "implementation.md do .claude/tools/implementation.py sinh — không sửa tay. Muốn đổi nội dung → sửa tool."
 EXT = "|".join(re.escape(e[1:]) for e in LANG_BY_EXT)
 PATH = r"[\w./@+-]*\.(?:" + EXT + r")"
 TMP = re.compile(r"(^|/)(tmp|temp|scratchpad|\.git|build|node_modules)/")
@@ -252,8 +254,11 @@ def main():
         if name and indexed(name):
             deny(DENY_GREP.format(name=name))
     if tool in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
-        if Path(inp.get("file_path", "")).as_posix().endswith(STATE_REL):
+        target = Path(inp.get("file_path", "")).as_posix()
+        if target.endswith(STATE_REL):
             deny(DENY_STATE)
+        if target.endswith(IMPL_REL):
+            deny(DENY_IMPL)
     sys.exit(0)
 
 

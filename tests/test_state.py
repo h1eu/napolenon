@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -210,6 +211,32 @@ class GateTest(unittest.TestCase):
 
     def add_task(self, files="lib/a.dart"):
         return run(self.root, "task", "add", "login", "t", "--files", files).stdout.strip()
+
+    IMPL = "docs/napoleon/implementation.md"
+
+    def test_every_state_write_refreshes_report(self):
+        tid = self.add_task()
+        self.assertIn("| login#1 | t | todo |", (self.root / self.IMPL).read_text())
+        run(self.root, "task", "start", "login", tid)
+        self.assertIn("| login#1 | t | in_progress |", (self.root / self.IMPL).read_text())
+
+    def test_report_is_in_task_commit(self):
+        tid = self.add_task()
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        run(self.root, "task", "done", "login", tid)
+        self.commit("task 1")
+        shown = subprocess.run(["git", "-C", str(self.root), "show", f"HEAD:{self.IMPL}"], capture_output=True, text=True).stdout
+        self.assertIn("| login#1 | t | done |", shown)
+
+    def test_broken_report_tool_does_not_fail_state(self):
+        tools = self.root / "t"
+        shutil.copytree(TOOL.parent, tools)
+        (tools / "implementation.py").write_text("raise RuntimeError('hỏng')\n")
+        r = subprocess.run([sys.executable, str(tools / "state.py"), "--root", str(self.root), "task", "add", "login", "x"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(r.stdout.strip(), "1")
+        self.assertIn("cảnh báo", r.stderr)
 
     def status(self, tid="1"):
         return [t for t in state_of(self.root)["features"]["login"]["tasks"] if t["id"] == int(tid)][0]

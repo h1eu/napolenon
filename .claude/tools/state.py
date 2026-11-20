@@ -87,6 +87,17 @@ def save_state(root, state):
     tmp = p.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, p)
+    # báo cáo hỏng không được chặn cổng task
+    try:
+        sys.path.insert(0, str(TOOLS))
+        try:
+            sys.modules.pop("implementation", None)
+            import implementation
+            implementation.write(Path(root))
+        finally:
+            sys.path.remove(str(TOOLS))
+    except Exception as e:
+        print(f"cảnh báo: không sinh được implementation.md ({e.__class__.__name__}: {e})", file=sys.stderr)
 
 
 def append_journal(root, feature, note):
