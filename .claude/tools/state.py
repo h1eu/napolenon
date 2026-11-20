@@ -87,16 +87,19 @@ def save_state(root, state):
     tmp = p.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     os.replace(tmp, p)
-    # báo cáo hỏng không được chặn cổng task
+    # báo cáo hỏng (kể cả sys.exit trong đó) không được chặn cổng task hay đổi mã thoát
+    added = str(TOOLS) not in sys.path
     try:
-        sys.path.insert(0, str(TOOLS))
+        if added:
+            sys.path.insert(0, str(TOOLS))
         try:
             sys.modules.pop("implementation", None)
             import implementation
             implementation.write(Path(root))
         finally:
-            sys.path.remove(str(TOOLS))
-    except Exception as e:
+            if added and str(TOOLS) in sys.path:
+                sys.path.remove(str(TOOLS))
+    except (Exception, SystemExit) as e:
         print(f"cảnh báo: không sinh được implementation.md ({e.__class__.__name__}: {e})", file=sys.stderr)
 
 

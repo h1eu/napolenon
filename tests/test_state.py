@@ -263,6 +263,28 @@ class GateTest(unittest.TestCase):
         self.assertEqual(r.stdout.strip(), "1")
         self.assertIn("cảnh báo", r.stderr)
 
+    def test_report_tool_exit_does_not_change_exit_code(self):
+        tools = self.root / "t"
+        shutil.copytree(TOOL.parent, tools)
+        (tools / "implementation.py").write_text("import sys\nsys.exit(3)\n")
+        r = subprocess.run([sys.executable, str(tools / "state.py"), "--root", str(self.root), "task", "add", "login", "x"],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), "1")
+        self.assertEqual(len([l for l in r.stderr.splitlines() if "cảnh báo" in l and "implementation" in l]), 1)
+
+    def test_save_state_does_not_grow_sys_path(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("state_inproc", TOOL)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        s = mod.load_state(self.root)
+        mod.save_state(self.root, s)
+        before = list(sys.path)
+        for _ in range(3):
+            mod.save_state(self.root, s)
+        self.assertEqual(sys.path, before)
+
     def status(self, tid="1"):
         return [t for t in state_of(self.root)["features"]["login"]["tasks"] if t["id"] == int(tid)][0]
 

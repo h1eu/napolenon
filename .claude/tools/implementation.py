@@ -14,7 +14,8 @@ import sys
 from pathlib import Path
 
 TOOLS = str(Path(__file__).resolve().parent)
-sys.path.insert(0, TOOLS)
+if TOOLS not in sys.path:
+    sys.path.insert(0, TOOLS)
 
 import report  # noqa: E402
 
