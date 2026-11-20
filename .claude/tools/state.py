@@ -180,23 +180,58 @@ def gate_conform(root, files):
     return rc == 0, last or f"exit {rc}"
 
 
+def test_detail(result, tail, mode="", files=None, command=""):
+    return {"mode": mode, "files": files or [], "command": command, "result": result, "tail": tail[:160]}
+
+
 def gate_tests(root, base, timeout):
-    """(ok, dòng kết quả). Lệnh test lấy từ affected.py → toolchain.json."""
+    """(ok, dòng kết quả, detail). Lệnh test lấy từ affected.py → toolchain.json."""
     rc, out = run_tool(root, "affected.py", "--base", base or "HEAD", "--json", timeout=120)
     if rc != 0:
-        return True, f"bỏ qua (affected.py: {out.splitlines()[-1] if out else rc})"
+        msg = f"bỏ qua (affected.py: {out.splitlines()[-1] if out else rc})"
+        return True, msg, test_detail("bỏ qua", msg)
     try:
         d = json.loads(out)
     except ValueError:
-        return True, "bỏ qua (affected.py trả dữ liệu lạ)"
-    if not d["command"]:
-        return True, f"không có test để chạy ({d['reason']})"
+        msg = "bỏ qua (affected.py trả dữ liệu lạ)"
+        return True, msg, test_detail("bỏ qua", msg)
+    mode, files, cmd = d["mode"], list(d.get("tests") or []), d["command"]
+    if not cmd:
+        msg = f"không có test để chạy ({d['reason']})"
+        return True, msg, test_detail("không có test", msg, mode, files)
     try:
-        r = subprocess.run(d["command"], shell=True, cwd=str(root), capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(cmd, shell=True, cwd=str(root), capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as e:
-        return False, f"{d['command']} — không xong ({e.__class__.__name__})"
-    tail = [ln for ln in (r.stdout + r.stderr).strip().splitlines() if ln.strip()]
-    return r.returncode == 0, f"{d['reason']} → {'pass' if r.returncode == 0 else 'FAIL'}: {tail[-1][:160] if tail else ''}"
+        msg = f"{cmd} — không xong ({e.__class__.__name__})"
+        return False, msg, test_detail("FAIL", msg, mode, files, cmd)
+    lines = [ln for ln in (r.stdout + r.stderr).strip().splitlines() if ln.strip()]
+    tail = lines[-1][:160] if lines else ""
+    result = "pass" if r.returncode == 0 else "FAIL"
+    return r.returncode == 0, f"{d['reason']} → {result}: {tail}", test_detail(result, tail, mode, files, cmd)
+
+
+def changed_since(root, base):
+    """File đổi của cây làm việc so với base; rỗng khi không git hoặc base rỗng."""
+    if not base:
+        return []
+    kinds = {}
+    r = git(root, "diff", "--name-status", "-M", "-z", base)
+    if r and r.returncode == 0:
+        parts = r.stdout.split("\0")
+        i = 0
+        while i < len(parts) and parts[i]:
+            code = parts[i][0]
+            if code in ("R", "C"):
+                path, i = parts[i + 2], i + 3
+            else:
+                path, i = parts[i + 1], i + 2
+            kinds[path] = {"A": "thêm", "D": "xoá", "R": "đổi tên"}.get(code, "sửa")
+    r = git(root, "ls-files", "--others", "--exclude-standard", "-z")
+    if r and r.returncode == 0:
+        for path in filter(None, r.stdout.split("\0")):
+            kinds.setdefault(path, "thêm")
+    skip = {str(STATE_REL), "docs/napoleon/implementation.md"}
+    return [{"path": p, "kind": k} for p, k in sorted(kinds.items()) if p not in skip]
 
 
 def verify_boxes(root, name):
@@ -360,19 +395,22 @@ def cmd_task(root, a):
             failed += [] if ok else [f"conform: {msg}"]
         if a.skip_tests:
             checks["test"] = "bỏ qua theo cờ --skip-tests"
+            detail = test_detail("bỏ qua", checks["test"])
         elif failed:
             # bộ test đầy đủ mất cả phút; conform trượt thì đằng nào cũng phải chạy lại
             checks["test"] = "chưa chạy (conform trượt trước)"
+            detail = test_detail("bỏ qua", checks["test"])
         else:
-            ok, msg = gate_tests(root, base, a.timeout)
+            ok, msg, detail = gate_tests(root, base, a.timeout)
             checks["test"] = msg
             failed += [] if ok else [f"test: {msg}"]
         for k, v in checks.items():
             print(f"{k}: {v}")
+        t["checks"], t["test"], t["changed"] = checks, detail, changed_since(root, base)
         if failed:
             save_state(root, state)            # giữ kết quả kiểm để phiên sau đọc được
             die("task chưa done — sửa rồi chạy lại:\n- " + "\n- ".join(failed))
-        t["status"], t["blocker"], t["checks"] = "done", "", checks
+        t["status"], t["blocker"] = "done", ""
         t["commit"] = git_head(root)
     else:
         t = get_task(f, a.id)

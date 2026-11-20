@@ -261,6 +261,61 @@ class GateTest(unittest.TestCase):
         self.assertIn("bỏ qua", self.status(tid)["checks"]["conform"])
         self.assertIn("bỏ qua", self.status(tid)["checks"]["test"])
 
+    def test_done_records_changed_with_kinds(self):
+        self.commit("state")
+        tid = self.add_task(); run(self.root, "task", "start", "login", tid)
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        write(self.root, "lib/màn hình mới.dart", "class B {}\n")
+        (self.root / "test/a_test.dart").unlink()
+        subprocess.run(["git", "-C", str(self.root), "mv", "pubspec.yaml", "pubspec2.yaml"], capture_output=True)
+        run(self.root, "task", "done", "login", tid, "--skip-tests", "--skip-conform")
+        got = {c["path"]: c["kind"] for c in self.status(tid)["changed"]}
+        self.assertEqual(got, {"lib/a.dart": "sửa", "lib/màn hình mới.dart": "thêm",
+                               "test/a_test.dart": "xoá", "pubspec2.yaml": "đổi tên"})
+
+    def test_changed_excludes_generated_files(self):
+        tid = self.add_task(); run(self.root, "task", "start", "login", tid)
+        write(self.root, "docs/napoleon/implementation.md", "x\n")
+        run(self.root, "task", "done", "login", tid, "--skip-tests", "--skip-conform")
+        paths = [c["path"] for c in self.status(tid)["changed"]]
+        self.assertNotIn("docs/napoleon/state.json", paths)
+        self.assertNotIn("docs/napoleon/implementation.md", paths)
+
+    def test_reopened_task_keeps_first_changes(self):
+        self.commit("state")
+        tid = self.add_task(); run(self.root, "task", "start", "login", tid)
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        run(self.root, "task", "done", "login", tid, "--skip-tests", "--skip-conform"); self.commit("t1")
+        run(self.root, "task", "start", "login", tid)
+        write(self.root, "lib/b.dart", "class B {}\n")
+        run(self.root, "task", "done", "login", tid, "--skip-tests", "--skip-conform")
+        self.assertEqual({c["path"] for c in self.status(tid)["changed"]} & {"lib/a.dart", "lib/b.dart"},
+                         {"lib/a.dart", "lib/b.dart"})
+
+    def test_done_records_test_detail(self):
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        tid = self.add_task()
+        run(self.root, "task", "done", "login", tid)
+        t = self.status(tid)["test"]
+        self.assertEqual(set(t), {"mode", "files", "command", "result", "tail"})
+        self.assertEqual(t["result"], "pass")
+        self.assertTrue(t["command"])
+
+    def test_failed_done_keeps_checks_and_test(self):
+        self.toolchain({"test": "exit 1", "test_one": "exit 1", "test_files": ["test/**"]})
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        tid = self.add_task()
+        self.assertEqual(run(self.root, "task", "done", "login", tid).returncode, 1)
+        t = self.status(tid)
+        self.assertEqual(t["status"], "todo")
+        self.assertEqual(t["test"]["result"], "FAIL")
+        self.assertIn("conform", t["checks"])
+
+    def test_skip_tests_recorded_in_test_detail(self):
+        tid = self.add_task()
+        run(self.root, "task", "done", "login", tid, "--skip-tests")
+        self.assertEqual(self.status(tid)["test"]["result"], "bỏ qua")
+
     def test_missing_rules_does_not_block(self):
         tid = self.add_task()
         r = run(self.root, "task", "done", "login", tid)
