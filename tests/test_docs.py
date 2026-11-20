@@ -107,7 +107,8 @@ class DocsTest(unittest.TestCase):
     def test_tools_present(self):
         names = {p.name for p in (C / "tools").glob("*.py")}
         self.assertEqual({"state.py", "conform.py", "audit.py", "report.py", "sources.py", "imports.py",
-                          "affected.py", "guard.py", "funcs.py", "globs.py", "cgdb.py", "stack.py", "perf.py"}, names)
+                          "affected.py", "guard.py", "funcs.py", "globs.py", "cgdb.py", "stack.py", "perf.py",
+                          "implementation.py"}, names)
 
     def test_brief_template_exists(self):
         text = (C / "templates" / "brief.md").read_text(encoding="utf-8")
