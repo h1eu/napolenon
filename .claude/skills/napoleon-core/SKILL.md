@@ -21,6 +21,7 @@ description: Napoleon hoạt động thế nào, phân vai với superpowers, fi
 | Truy vấn code | codegraph MCP, skill `using-codegraph` |
 | Kiểm tra quy ước, phụ thuộc, báo cáo | napoleon `conform.py`, `audit.py`, `report.py` |
 | Tech stack + phiên bản thư viện đang dùng | napoleon `stack.py` → `docs/napoleon/stack.md` (`/stack`) |
+| Màn giật, cần đo và cải thiện độ mượt | napoleon `/perf`: `perf.py` đo trên máy thật, agent `perf-hunter` chỉ nghi phạm |
 | Chọn test cần chạy sau một thay đổi | napoleon `affected.py` (bước build); verify vẫn chạy toàn bộ |
 | Chặn ghi file nguồn bằng Bash, chặn sửa tay state.json | napoleon hook `guard.py` |
 | Kiểm tra độc lập sau build | napoleon agent `verifier` (đủ spec chưa) + `bug-hunter` (cái gì làm nó hỏng) |

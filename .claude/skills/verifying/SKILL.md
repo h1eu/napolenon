@@ -18,6 +18,14 @@ python3 .claude/tools/stack.py --check    # feature thêm/nâng thư viện → 
 Bước verify là chỗ duy nhất chạy toàn bộ test. Trong lúc build, `state.py task done` đã chạy test theo diff.
 Mỗi lệnh → một dòng `- [x]`/`- [ ]` trong `verify.md` mục `## Máy`, kèm kết quả tóm tắt (vd: `1811 test pass`, `0 vi phạm`).
 
+### Đo trên máy thật — chỉ khi spec có ca
+Spec mục "Ngân sách hiệu năng" liệt kê ca → mỗi ca chạy `python3 .claude/tools/perf.py <ca>`. Mục ghi "không áp dụng" hoặc spec cũ không có mục này → bỏ qua, không thêm dòng nào.
+- Exit 0, không có cảnh báo `debuggable` → `- [x] perf.py <ca> → <dán nguyên dòng kết quả>` trong `## Máy`.
+- Exit 1 (vượt ngân sách) → verify fail với `--issue giat`, về build; tìm nguyên nhân bằng `/perf <ca>`.
+- Exit 2 hoặc bản debuggable (không cắm máy, app chưa mở, chưa có bản release) → **không** ghi vào `## Máy`. Thêm vào `## Người`: `- [ ] chạy perf.py <ca> trên máy thật, bản release`. Không chặn `done`.
+
+Không tự build và cài bản release ở bước này; việc đó thuộc `/perf`.
+
 ## Lớp 2 — Agent `verifier`
 Gọi `.claude/agents/verifier.md` qua Agent tool với prompt đúng 6 dòng:
 ```
@@ -51,7 +59,7 @@ Mục này **không chặn** `done`: người dùng tick sau bằng `state.py hu
 python3 .claude/tools/state.py verify <tên> pass
 python3 .claude/tools/state.py verify <tên> fail --issue hardcode --issue thieu-test --note "lần 1"
 ```
-Nhãn `--issue` ngắn, dùng lại giữa các feature (`hardcode`, `ham-dai`, `nhieu-tham-so`, `thieu-test`, `lech-design`, `chua-tra-doc`, `trung-code`, `hoi-quy`, `co-khong-danh-tinh`, `nuot-loi`, `ban-sao-state`). Nhãn lặp ở ≥ 2 feature → tool nhắc `/retro`; chặn nó bằng rule/test thay vì nhắc nhau lần nữa.
+Nhãn `--issue` ngắn, dùng lại giữa các feature (`hardcode`, `ham-dai`, `nhieu-tham-so`, `thieu-test`, `lech-design`, `chua-tra-doc`, `trung-code`, `hoi-quy`, `co-khong-danh-tinh`, `nuot-loi`, `ban-sao-state`, `giat`). Nhãn lặp ở ≥ 2 feature → tool nhắc `/retro`; chặn nó bằng rule/test thay vì nhắc nhau lần nữa.
 
 ## Format `verify.md`
 Từ `templates/verify.md`. Bốn heading cố định `## Máy`, `## Verifier`, `## Săn lỗi`, `## Người`.
@@ -63,3 +71,4 @@ Từ `templates/verify.md`. Bốn heading cố định `## Máy`, `## Verifier`,
 - Không bỏ lớp 2 hay 2b vì "feature nhỏ".
 - Không tick ô "Săn lỗi" khi còn lỗi nặng chưa có test tái hiện.
 - Không sửa test để xanh.
+- Không tick ô `perf.py` khi tool chưa thoát 0 trên bản release, và không nới ngưỡng của ca để qua.

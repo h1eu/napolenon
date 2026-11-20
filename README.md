@@ -90,6 +90,7 @@ Kịch bản chạy tay đầy đủ 15 phút: [tests/smoke.md](tests/smoke.md).
 | `/feature <tên> [bước]` | Làm một bước: spec → plan → build → verify → done | `docs/napoleon/features/<tên>/{spec,plan,verify}.md`, `state.json` |
 | `/where` | `state.py show` + journal | Không suy luận thêm. Không đặt tên `/status` vì trùng lệnh có sẵn của Claude Code |
 | `/stack` | `stack.py` đọc manifest + lockfile | `docs/napoleon/stack.md`: Flutter/Dart, Android (compile/target/minSdk, AGP, Kotlin, Gradle), iOS target, thư viện kèm phiên bản đang dùng và vai trò. Ghi chú của bạn bên dưới khối sinh được giữ |
+| `/perf <màn\|flow>` | Cần máy Android thật cắm sẵn, bản release. Khai ca đo, `perf.py` đo mốc, agent `perf-hunter` chỉ nghi phạm, sửa từng thứ một và đo lại; thay đổi "trong nhiễu" bị hoàn lại | Ca trong `toolchain.json`, baseline ở `docs/napoleon/perf.json`, mỗi sửa có ích một commit |
 | `/report` | `report.py` | `reports/roadmap.html`, mọi số có ghi nguồn |
 | `/retro` | Tìm lỗi lặp ≥ 2 lần | Mỗi lỗi một chỗ chặn: test → rules.json → hook → rule → chữ |
 | `/sync-docs [feature]` | `docs/sources/` đổi sau khi đã có harness: `sources.py diff` so với mốc cuối (sha256 + git diff), liệt kê điểm lệch với `instructions/` và spec, hỏi bạn quyết từng điểm | Sửa đúng dòng lệch, ADR khi giữ/đổi kiến trúc, task sửa cho feature đang build, mốc mới trong `state.json` |
@@ -110,7 +111,7 @@ Mọi file của feature nằm ở `docs/napoleon/features/<tên>/`: `brief.md`,
 
 Verify ba lớp, lớp nào máy làm được thì máy làm:
 
-1. **Máy** — format, analyze, **toàn bộ** test, build từ `toolchain.json`; `conform.py` 0 vi phạm; `audit.py` không thêm cycle, không vượt ranh giới. (Trong lúc build thì chỉ chạy test theo diff — xem `affected.py`.)
+1. **Máy** — format, analyze, **toàn bộ** test, build từ `toolchain.json`; `conform.py` 0 vi phạm; `audit.py` không thêm cycle, không vượt ranh giới. (Trong lúc build thì chỉ chạy test theo diff — xem `affected.py`.) Spec có mục "Ngân sách hiệu năng" liệt kê ca đo → chạy thêm `perf.py <ca>` nếu có máy Android thật với bản release: vượt ngân sách thì verify fail, không đo được thì việc đó chuyển xuống mục Người và không chặn `done`.
 2. **Agent `verifier`** — context riêng, chỉ đọc, nhận spec + diff, không nhận lời giải thích. Trả bảng từng yêu cầu đạt/chưa kèm `file:dòng`. Không bằng chứng = chưa đạt.
    **Agent `bug-hunter`** chạy song song — không chấm spec mà săn kịch bản hỏng: cờ "đang bận" nuốt lần gọi thứ hai, hai lớp gặp nhau, mất mạng rồi có lại, xung đột rồi thử lại, stub trên đường chạy thật. Lỗi nặng → test tái hiện rồi mới sửa. Spec có sẵn mục "Kịch bản lần hai" để những chuyện này thành yêu cầu ngay từ đầu.
 3. **Bạn** — những gì máy và verifier không kiểm được (UI trên máy thật, cảm nhận). Mục này **không chặn** `done`: feature vẫn chốt được, mục Người nằm chờ bạn tick sau (`state.py human <tên> tick <n>`), `/report` đếm riêng.
@@ -154,7 +155,7 @@ Trong repo này:
 .claude/
 ├── CLAUDE.md                 lõi, luôn nạp
 ├── settings.json             5 hook
-├── commands/                 9 lệnh
+├── commands/                 10 lệnh
 ├── skills/
 │   ├── napoleon-core/        phân vai, file ở đâu, tool nào khi nào
 │   ├── architecture-interview/   phỏng vấn + references/ (clean, MVI, BLoC, MVVM, DI, navigation, testing)
@@ -163,8 +164,8 @@ Trong repo này:
 │   ├── feature-loop/         5 bước, điều kiện vào/ra
 │   ├── verifying/            3 lớp
 │   └── using-codegraph/      câu hỏi → tool
-├── agents/                   verifier.md (đối chiếu spec) · bug-hunter.md (săn lỗi vận hành)
-├── tools/                    state.py conform.py audit.py affected.py stack.py report.py sources.py
+├── agents/                   verifier.md (đối chiếu spec) · bug-hunter.md (săn lỗi vận hành) · perf-hunter.md (tìm nguyên nhân giật)
+├── tools/                    state.py conform.py audit.py affected.py stack.py perf.py report.py sources.py
 │                             guard.py (hook) + funcs.py globs.py cgdb.py imports.py + 3 hook .sh
 ├── templates/                khuôn cho mọi file sinh ra
 ├── instructions/             (trống) /start-build sinh
@@ -264,6 +265,16 @@ python3 .claude/tools/stack.py --check        # exit 1 khi manifest đổi mà s
 ```
 
 "README kỹ thuật" của dự án, sinh từ `pubspec.yaml/.lock`, `.fvmrc`, Gradle (`build.gradle*`, `settings.gradle*`, `libs.versions.toml`, gradle wrapper), Xcode (`project.pbxproj`, `Podfile(.lock)`, `Package.resolved`), `package.json/-lock`, `pyproject.toml`/`requirements.txt`. Mỗi thư viện có cột **Khai báo** (constraint), **Đang dùng** (từ lockfile — phiên bản để tra context7) và **Vai trò** (HTTP, DI, state…) để agent thấy đã có thư viện cho việc đó. Không ghi giờ sinh: chạy lại khi không đổi gì thì file không đổi. Flutter chưa ghim bằng `.fvmrc` thì lấy từ `flutter --version` và ghi rõ nguồn. `/map-codebase` và `/start-build` gọi tool này; hook SessionStart thêm một dòng khi `stack.md` cũ; lớp Máy của verify chạy `--check`.
+
+### `perf.py`
+
+```bash
+python3 .claude/tools/perf.py <ca> [--runs 3] [--save-baseline] [--json]   # ca khai ở toolchain.json mục "perf"
+python3 .claude/tools/perf.py <ca> -- "input swipe 900 1100 180 1100 300"  # ca tạm
+python3 .claude/tools/perf.py --list
+```
+
+Đo độ mượt của một thao tác trên máy Android thật (cần `adb`, app đang mở, bản release). Đọc thời điểm present từ `dumpsys SurfaceFlinger --latency` trước và sau thao tác, tính khung rớt theo **chu kỳ làm tươi của chính máy đó** (không giả định 60 Hz), FPS, p50/p90/max. Chạy lặp lấy trung vị; `reset` trong ca đưa app về chỗ cũ giữa các lần. Quãng dừng > 200 ms: tối đa (số lệnh − 1) quãng được coi là nghỉ giữa hai lệnh adb, còn lại tính là **đứng hình** và nằm trong thống kê. `--save-baseline` ghi `docs/napoleon/perf.json`; lần sau in chênh lệch và chỉ kết luận "tốt hơn/tệ hơn" khi dải kết quả hai bên không chồng nhau, baseline đo trên máy khác thì không so. Exit 1 khi vượt ngân sách của ca (`max_dropped_pct`, `max_p90_ms`, `min_fps`), exit 2 khi không đo được (không có máy, không thấy layer, bảng 127 khung bị tràn, quá ít khung). Chưa có bản iOS.
 
 ### `affected.py`
 

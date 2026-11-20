@@ -10,6 +10,7 @@ Ngày: <YYYY-MM-DD>
 - [ ] conform.py → <0 vi phạm>
 - [ ] audit.py → <cycles: n, vi phạm ranh giới: n>
 - [ ] stack.py --check → <khớp / đã chạy /stack>
+- [ ] perf.py <ca> → <dòng kết quả của tool> (mỗi ca trong spec một dòng; spec ghi "không áp dụng" → xoá dòng này; không đo được → chuyển xuống mục Người)
 
 ## Verifier
 | # | Yêu cầu | Đạt | Bằng chứng |

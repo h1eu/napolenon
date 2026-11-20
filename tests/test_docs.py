@@ -49,7 +49,7 @@ class DocsTest(unittest.TestCase):
         cmds = sorted(C.glob("commands/*.md"))
         self.assertEqual({c.stem for c in cmds},
                          {"map-codebase", "start-build", "setup-agents", "feature", "where", "report", "retro", "sync-docs",
-                          "stack"})
+                          "stack", "perf"})
         for c in cmds:
             fm = frontmatter(c)
             self.assertIsNotNone(fm, c)
@@ -57,7 +57,7 @@ class DocsTest(unittest.TestCase):
 
     def test_agent_frontmatter(self):
         agents = sorted(C.glob("agents/*.md"))
-        self.assertEqual([a.stem for a in agents], ["bug-hunter", "verifier"])
+        self.assertEqual([a.stem for a in agents], ["bug-hunter", "perf-hunter", "verifier"])
         for a in agents:
             fm = frontmatter(a)
             for k in ("name", "description", "tools"):
@@ -107,7 +107,7 @@ class DocsTest(unittest.TestCase):
     def test_tools_present(self):
         names = {p.name for p in (C / "tools").glob("*.py")}
         self.assertEqual({"state.py", "conform.py", "audit.py", "report.py", "sources.py", "imports.py",
-                          "affected.py", "guard.py", "funcs.py", "globs.py", "cgdb.py", "stack.py"}, names)
+                          "affected.py", "guard.py", "funcs.py", "globs.py", "cgdb.py", "stack.py", "perf.py"}, names)
 
     def test_brief_template_exists(self):
         text = (C / "templates" / "brief.md").read_text(encoding="utf-8")
@@ -160,6 +160,16 @@ class DocsTest(unittest.TestCase):
         for h in ("## Máy", "## Verifier", "## Săn lỗi", "## Người"):
             self.assertIn(h, text)
         self.assertLess(text.index("## Săn lỗi"), text.index("## Người"), "ô Săn lỗi phải nằm ngoài mục Người để chặn done")
+
+    def test_perf_hook_is_soft(self):
+        """Spec khai ca, verify đo khi có máy; không đo được thì rơi xuống mục Người chứ không chặn done."""
+        self.assertIn("## Ngân sách hiệu năng", (C / "templates" / "spec.md").read_text(encoding="utf-8"))
+        verify = (C / "templates" / "verify.md").read_text(encoding="utf-8")
+        self.assertLess(verify.index("perf.py"), verify.index("## Verifier"))
+        skill = (C / "skills" / "verifying" / "SKILL.md").read_text(encoding="utf-8")
+        hook = skill.split("### Đo trên máy thật", 1)[1].split("## Lớp 2", 1)[0]
+        for k in ("perf.py <ca>", "Exit 1", "Exit 2", "## Người", "Không chặn"):
+            self.assertIn(k, hook)
 
     def test_spec_template_has_second_time_scenarios(self):
         text = (C / "templates" / "spec.md").read_text(encoding="utf-8")

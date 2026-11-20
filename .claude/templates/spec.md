@@ -37,5 +37,9 @@ Mỗi dòng là một yêu cầu có test, đánh số nối tiếp mục "Yêu 
 - Rời màn hình khi request còn bay → <…>
 - Tài nguyên dùng chung với feature khác (singleton, cache, khoá) → <feature nào, ai thắng>
 
+## Ngân sách hiệu năng
+Chỉ ghi tên ca; thao tác và ngưỡng nằm ở `toolchain.json` mục `perf.cases` (một nguồn). Feature không có cuộn, vuốt hay animation → ghi "không áp dụng — vì …".
+- `<tên-ca>` — <màn nào, thao tác gì>
+
 ## Câu hỏi đã chốt
 - <câu hỏi> → <trả lời của người dùng>

@@ -11,5 +11,18 @@
   "full_test_when": ["<glob đụng tới là phải chạy toàn bộ: pubspec.yaml, lib/core/di/**, lib/core/router/**, lib/core/theme/**, lib/l10n/**>"],
   "affected_hubs": ["<file import gần hết app, lan tới thì dừng: lib/core/router/**, lib/core/di/**, lib/app.dart>"],
   "build": "<flutter build apk --debug | ./gradlew assembleDebug | xcodebuild build ...>",
-  "codegen": "<để trống nếu không có; vd: dart run build_runner build -d>"
+  "codegen": "<để trống nếu không có; vd: dart run build_runner build -d>",
+  "perf": {
+    "_doc": "Ca đo độ mượt cho perf.py (Android, máy thật, bản release). steps/reset là lệnh adb shell; reset đưa app về chỗ cũ giữa các lần chạy và không được đo. Ngân sách (max_dropped_pct, max_p90_ms, min_fps) để trống thì chỉ đo, không chặn. install là lệnh /perf chạy trước mỗi lần đo lại. Xoá cả mục nếu không dùng.",
+    "package": "<applicationId bản release>",
+    "install": "<build + cài bản release; vd: flutter install --release | ./gradlew installRelease>",
+    "runs": 3,
+    "cases": {
+      "<ten-ca>": {
+        "steps": ["<input swipe 900 1100 180 1100 300>"],
+        "reset": ["<input swipe 180 1100 900 1100 300>"],
+        "max_dropped_pct": 2
+      }
+    }
+  }
 }

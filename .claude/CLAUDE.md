@@ -36,6 +36,7 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 | `/feature <tên> [bước]` | Làm một feature. Không truyền bước → bước kế tiếp. |
 | `/where` | Mở phiên mới, muốn biết đang ở đâu. |
 | `/stack` | Thêm/nâng thư viện hoặc SDK. Sinh lại `docs/napoleon/stack.md`. |
+| `/perf <màn\|flow>` | Màn giật. Đo trên máy Android thật, tìm nguyên nhân, sửa từng thứ, đo lại. |
 | `/report` | Sinh `reports/roadmap.html`. |
 | `/retro` | Thấy lỗi lặp lại. Biến nó thành test/rule/hook. |
 | `/sync-docs [feature]` | Tài liệu trong `docs/sources/` đổi. So với mốc cuối, hỏi bạn quyết từng điểm lệch. |
@@ -46,6 +47,7 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 - `python3 .claude/tools/audit.py` — cycles, ranh giới module, dep ngoài, file mồ côi.
 - `python3 .claude/tools/affected.py` — file đổi → test nào cần chạy.
 - `python3 .claude/tools/stack.py` — tech stack + phiên bản → `docs/napoleon/stack.md`; `--check` báo khi cũ.
+- `python3 .claude/tools/perf.py <ca>` — khung rớt/FPS của một thao tác trên máy Android thật; `--save-baseline` ghi mốc để so.
 - `python3 .claude/tools/sources.py diff` — `docs/sources/` đổi gì so với mốc, harness trích dẫn ở đâu.
 - `python3 .claude/tools/report.py` — roadmap.html.
 
