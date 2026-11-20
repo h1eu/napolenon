@@ -159,7 +159,7 @@ class GateTest(unittest.TestCase):
         run(self.root, "task", "add", "login", "t", "--routes", " /login , /forgot ")
         self.assertEqual(self.status("1")["routes"], ["/login", "/forgot"])
 
-    def test_start_records_base_and_restart_keeps_it(self):
+    def test_start_records_base_and_restart_keeps_it_unless_done(self):
         tid = self.add_task()
         run(self.root, "task", "start", "login", tid)
         first = self.status(tid)["base"]
@@ -167,6 +167,31 @@ class GateTest(unittest.TestCase):
         write(self.root, "lib/a.dart", "class A { int x = 1; }\n"); self.commit("giữa chừng")
         run(self.root, "task", "start", "login", tid)
         self.assertEqual(self.status(tid)["base"], first)
+        run(self.root, "task", "done", "login", tid, "--skip-tests", "--skip-conform"); self.commit("t1")
+        run(self.root, "task", "start", "login", tid)
+        self.assertEqual(self.status(tid)["base"], self.head())
+        self.assertNotEqual(self.head(), first)
+
+    def test_reopened_task_does_not_take_later_tasks_work(self):
+        self.commit("state")
+        t1 = self.add_task(); run(self.root, "task", "start", "login", t1)
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        write(self.root, "lib/c.dart", "class C {}\n")
+        run(self.root, "task", "done", "login", t1, "--skip-tests", "--skip-conform"); self.commit("t1")
+        t2 = self.add_task(); run(self.root, "task", "start", "login", t2)
+        write(self.root, "lib/t2.dart", "class T2 {}\n")
+        run(self.root, "task", "done", "login", t2, "--skip-tests", "--skip-conform"); self.commit("t2")
+        run(self.root, "task", "start", "login", t1)
+        write(self.root, "lib/c.dart", "class C { int y = 1; }\n")
+        write(self.root, "lib/new.dart", "class N {}\n")
+        run(self.root, "task", "done", "login", t1, "--skip-tests", "--skip-conform"); self.commit("t1 lại")
+        self.assertEqual(self.status(t1)["changed"], [{"path": "lib/a.dart", "kind": "sửa"},
+                                                      {"path": "lib/c.dart", "kind": "sửa"},
+                                                      {"path": "lib/new.dart", "kind": "thêm"}])
+        subprocess.run([sys.executable, str(TOOL.parent / "implementation.py"), "--root", str(self.root)],
+                       capture_output=True)       # sinh lại sau commit cuối để có sha đóng task
+        row = next(l for l in (self.root / self.IMPL).read_text().splitlines() if l.startswith("| login#1 |"))
+        self.assertTrue(row.endswith(f"| {self.head()[:7]} |"), row)
 
     def test_start_warns_when_tree_dirty(self):
         tid = self.add_task()

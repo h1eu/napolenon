@@ -245,6 +245,13 @@ def changed_since(root, base):
     return [{"path": p, "kind": k} for p, k in sorted(kinds.items()) if p not in skip]
 
 
+def merge_changed(old, new):
+    """Task mở lại có mốc mới: giữ file của lần done trước, lần mới thắng khi trùng path."""
+    by_path = {c["path"]: c for c in old or []}
+    by_path.update({c["path"]: c for c in new})
+    return [by_path[p] for p in sorted(by_path)]
+
+
 def verify_boxes(root, name):
     """(chưa tick ngoài mục Người, chưa tick trong mục Người) hoặc None nếu không có verify.md."""
     p = Path(root) / FEATURES_REL / name / "verify.md"
@@ -417,7 +424,9 @@ def cmd_task(root, a):
             failed += [] if ok else [f"test: {msg}"]
         for k, v in checks.items():
             print(f"{k}: {v}")
-        t["checks"], t["test"], t["changed"] = checks, detail, changed_since(root, base)
+        changed = changed_since(root, base)
+        t["checks"], t["test"] = checks, detail
+        t["changed"] = merge_changed(t["changed"], changed) if t["commit"] else changed
         if failed:
             save_state(root, state)            # giữ kết quả kiểm để phiên sau đọc được
             die("task chưa done — sửa rồi chạy lại:\n- " + "\n- ".join(failed))
@@ -426,9 +435,10 @@ def cmd_task(root, a):
     else:
         t = get_task(f, a.id)
         if a.action == "start":
-            t["status"], t["blocker"] = "in_progress", ""
-            if not t["base"]:
+            # mở lại task đã done: mốc mới, để diff và (+n) không ôm việc của các task đóng sau nó
+            if not t["base"] or t["status"] == "done":
                 t["base"] = git_head(root)
+            t["status"], t["blocker"] = "in_progress", ""
             if dirty_outside_napoleon(root):
                 print("cảnh báo: cây làm việc còn thay đổi chưa commit — commit task trước để diff của task này không gộp",
                       file=sys.stderr)

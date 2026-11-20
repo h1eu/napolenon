@@ -110,7 +110,7 @@ Mỗi mục kết thúc bằng một dòng `nguồn: …` như `roadmap.html`.
 
 **Trường mới của task** (tuỳ chọn; state cũ thiếu trường vẫn đọc được, coi như rỗng):
 - `routes`: danh sách route, khai bằng `task add … --routes /login,/forgot`.
-- `base`: sha HEAD lúc `task start` lần đầu. Không có git → rỗng. Task đã done được `start` lại (sau verify fail) → giữ `base` cũ, nên `changed` ở lần done sau vẫn là toàn bộ file của task, và test chạy lại trên toàn bộ phần đó.
+- `base`: sha HEAD lúc `task start` lần đầu. Không có git → rỗng. `start` lại task chưa done → giữ `base` cũ. `start` lại task đã done (sau verify fail) → `base` = HEAD lúc đó, để phần việc của các task đóng sau nó không bị tính vào. Ở lần done sau, `changed` = `changed` cũ ∪ file đổi so với `base` mới (gộp theo path, `kind` của lần mới thắng, sắp theo path); cổng test và `(+n)` dùng `base` mới.
 - `changed`: danh sách `{path, kind}` ghi lúc `task done` — file khác biệt giữa `base` và cây làm việc (đã commit, đã stage, chưa stage, chưa theo dõi), trừ `docs/napoleon/state.json` và `docs/napoleon/implementation.md`. `kind` ∈ thêm / sửa / xoá / đổi tên.
 - `test`: `{mode, files, command, result}` lấy từ JSON của `affected.py` và kết quả chạy. `checks` giữ nguyên dạng chuỗi như hiện tại.
 
