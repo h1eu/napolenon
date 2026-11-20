@@ -4,7 +4,7 @@
   state.py [--root DIR] init
   state.py [--root DIR] show [--brief] [--json]
   state.py [--root DIR] feature add <tên> | step <tên> <bước> | show <tên>
-  state.py [--root DIR] task add <feature> "<title>" [--files a,b] | start <feature> <id>
+  state.py [--root DIR] task add <feature> "<title>" [--files a,b] [--routes /a,/b] | start <feature> <id>
   state.py [--root DIR] task done <feature> <id> [--skip-tests] [--skip-conform] [--timeout S]
   state.py [--root DIR] task block <feature> <id> "<lý do>"
   state.py [--root DIR] verify <feature> pass|fail [--issue tag ...] [--note "..."]
@@ -73,6 +73,10 @@ def migrate(state):
         for t in f.get("tasks", []):
             t.setdefault("commit", "")
             t.setdefault("checks", {})
+            t.setdefault("routes", [])
+            t.setdefault("base", "")
+            t.setdefault("changed", [])
+            t.setdefault("test", {})
     state["version"] = VERSION
     return state
 
@@ -125,6 +129,18 @@ def git(root, *args, timeout=20):
 def git_head(root):
     r = git(root, "rev-parse", "HEAD", timeout=10)
     return r.stdout.strip() if r and r.returncode == 0 else ""
+
+
+def dirty_outside_napoleon(root):
+    r = git(root, "status", "--porcelain", "-z", timeout=10)
+    if not r or r.returncode != 0:
+        return False
+    # -z: mục "XY path" ngăn bằng NUL; rename có thêm một mục path gốc không kèm "XY "
+    for entry in r.stdout.split("\0"):
+        path = entry[3:] if len(entry) > 3 and entry[2] == " " else entry
+        if path and not path.startswith(str(STATE_REL.parent) + "/"):
+            return True
+    return False
 
 
 def get_feature(state, name):
@@ -326,11 +342,15 @@ def cmd_task(root, a):
     if a.action == "add":
         tid = max([t["id"] for t in f["tasks"]], default=0) + 1
         files = [x.strip() for x in (a.files or "").split(",") if x.strip()]
+        routes = [x.strip() for x in (a.routes or "").split(",") if x.strip()]
         f["tasks"].append({"id": tid, "title": a.title, "status": "todo", "files": files, "blocker": "",
-                           "commit": "", "checks": {}})
+                           "commit": "", "checks": {}, "routes": routes, "base": "", "changed": [], "test": {}})
         print(tid)
     elif a.action == "done":
         t = get_task(f, a.id)
+        base = t["base"] or git_head(root)
+        if not t["base"]:
+            t["base"] = base
         checks, failed = {}, []
         if a.skip_conform:
             checks["conform"] = "bỏ qua theo cờ --skip-conform"
@@ -344,7 +364,6 @@ def cmd_task(root, a):
             # bộ test đầy đủ mất cả phút; conform trượt thì đằng nào cũng phải chạy lại
             checks["test"] = "chưa chạy (conform trượt trước)"
         else:
-            base = last_commit(f, a.id) or "HEAD"
             ok, msg = gate_tests(root, base, a.timeout)
             checks["test"] = msg
             failed += [] if ok else [f"test: {msg}"]
@@ -359,16 +378,15 @@ def cmd_task(root, a):
         t = get_task(f, a.id)
         if a.action == "start":
             t["status"], t["blocker"] = "in_progress", ""
+            if not t["base"]:
+                t["base"] = git_head(root)
+            if dirty_outside_napoleon(root):
+                print("cảnh báo: cây làm việc còn thay đổi chưa commit — commit task trước để diff của task này không gộp",
+                      file=sys.stderr)
         elif a.action == "block":
             t["status"], t["blocker"] = "blocked", a.reason
     f["updated"] = now()
     save_state(root, state)
-
-
-def last_commit(feature, task_id):
-    """sha lúc đóng task trước đó — mốc diff cho test theo thay đổi."""
-    prev = [t for t in feature["tasks"] if t["id"] < task_id and t.get("commit")]
-    return prev[-1]["commit"] if prev else ""
 
 
 def cmd_verify(root, a):
@@ -468,7 +486,7 @@ def main(argv=None):
     x = fe.add_parser("show"); x.add_argument("name")
 
     ta = sub.add_parser("task").add_subparsers(dest="action", required=True)
-    x = ta.add_parser("add"); x.add_argument("feature"); x.add_argument("title"); x.add_argument("--files")
+    x = ta.add_parser("add"); x.add_argument("feature"); x.add_argument("title"); x.add_argument("--files"); x.add_argument("--routes")
     x = ta.add_parser("start"); x.add_argument("feature"); x.add_argument("id", type=int)
     x = ta.add_parser("done"); x.add_argument("feature"); x.add_argument("id", type=int)
     x.add_argument("--skip-tests", action="store_true"); x.add_argument("--skip-conform", action="store_true")

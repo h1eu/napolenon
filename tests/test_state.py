@@ -138,13 +138,69 @@ class GateTest(unittest.TestCase):
         write(self.root, "lib/a.dart", "class A {}\n")
         write(self.root, "test/a_test.dart", "import 'package:app/a.dart';\n")
         self.toolchain({"test": "exit 0", "test_one": "exit 0", "test_files": ["test/**"]})
-        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x",
-               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"}
-        for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "i"]):
-            subprocess.run(["git", "-C", str(self.root), *args], capture_output=True, env=env)
+        self.env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@x",
+                    "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@x"}
+        subprocess.run(["git", "-C", str(self.root), "init", "-q"], capture_output=True, env=self.env)
+        self.commit("i")
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def commit(self, msg):
+        for args in (["add", "-A"], ["commit", "-qm", msg]):
+            subprocess.run(["git", "-C", str(self.root), *args], capture_output=True, env=self.env)
+
+    def head(self):
+        r = subprocess.run(["git", "-C", str(self.root), "rev-parse", "HEAD"], capture_output=True, text=True)
+        return r.stdout.strip()
+
+    def test_task_add_routes(self):
+        run(self.root, "task", "add", "login", "t", "--routes", " /login , /forgot ")
+        self.assertEqual(self.status("1")["routes"], ["/login", "/forgot"])
+
+    def test_start_records_base_and_restart_keeps_it(self):
+        tid = self.add_task()
+        run(self.root, "task", "start", "login", tid)
+        first = self.status(tid)["base"]
+        self.assertEqual(first, self.head())
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n"); self.commit("giữa chừng")
+        run(self.root, "task", "start", "login", tid)
+        self.assertEqual(self.status(tid)["base"], first)
+
+    def test_start_warns_when_tree_dirty(self):
+        tid = self.add_task()
+        write(self.root, "lib/a.dart", "class A { int y = 2; }\n")
+        r = run(self.root, "task", "start", "login", tid)
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("cảnh báo", r.stderr)
+
+    def test_start_clean_tree_no_warning(self):
+        self.commit("state")                       # state.json do setUp tạo ra chưa commit
+        tid = self.add_task()                      # chỉ đổi docs/napoleon/ → không tính là bẩn
+        r = run(self.root, "task", "start", "login", tid)
+        self.assertNotIn("cảnh báo", r.stderr)
+
+    def test_tests_diff_from_own_base_not_previous_task(self):
+        # task 1 sửa lib/a.dart rồi commit; task 2 không đụng code → không được chạy lại test của task 1
+        self.toolchain({"test": "touch ran.txt", "test_one": "touch ran.txt", "test_files": ["test/**"]})
+        self.commit("toolchain")
+        t1 = self.add_task(); run(self.root, "task", "start", "login", t1)
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        run(self.root, "task", "done", "login", t1)
+        (self.root / "ran.txt").unlink(); self.commit("task 1")
+        t2 = self.add_task(); run(self.root, "task", "start", "login", t2)
+        run(self.root, "task", "done", "login", t2)
+        self.assertFalse((self.root / "ran.txt").exists())
+
+    def test_old_task_gets_new_field_defaults(self):
+        tid = self.add_task()
+        s = state_of(self.root)
+        for k in ("routes", "base", "changed", "test"):
+            s["features"]["login"]["tasks"][0].pop(k, None)
+        (self.root / "docs/napoleon/state.json").write_text(json.dumps(s))
+        run(self.root, "task", "start", "login", tid)
+        t = self.status(tid)
+        self.assertEqual((t["routes"], t["changed"], t["test"]), ([], [], {}))
 
     def toolchain(self, data):
         write(self.root, ".claude/instructions/toolchain.json", json.dumps(data))
@@ -264,6 +320,20 @@ class GateTest(unittest.TestCase):
         self.assertNotIn("thêm chip B26", run(self.root, "followup", "list").stdout)
         self.assertIn("thêm chip B26", run(self.root, "followup", "list", "--all").stdout)
         self.assertEqual(run(self.root, "followup", "done", "9").returncode, 1)
+
+
+class NoCommitTest(unittest.TestCase):
+    def test_task_flow_without_any_commit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            subprocess.run(["git", "-C", str(root), "init", "-q"], capture_output=True)
+            run(root, "init")
+            run(root, "feature", "add", "login")
+            tid = run(root, "task", "add", "login", "t").stdout.strip()
+            for args in (("start", "login", tid), ("done", "login", tid, "--skip-tests", "--skip-conform")):
+                self.assertEqual(run(root, "task", *args).returncode, 0)
+            t = state_of(root)["features"]["login"]["tasks"][0]
+            self.assertEqual(t["base"], "")
 
 
 if __name__ == "__main__":
