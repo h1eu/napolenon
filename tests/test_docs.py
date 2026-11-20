@@ -178,6 +178,20 @@ class DocsTest(unittest.TestCase):
         for k in ("Gọi lại", "Mất mạng", "Xung đột", "Rời màn hình", "dùng chung"):
             self.assertIn(k, text)
 
+    def test_implementation_report_is_documented(self):
+        claude = (C / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertIn("implementation.py", claude)
+        self.assertIn("docs/napoleon/implementation.md", claude)
+        self.assertIn("routes.md", claude)
+        for rel in ("commands/where.md", "commands/report.md"):
+            self.assertIn("implementation.py", (C / rel).read_text(encoding="utf-8"), rel)
+        loop = (C / "skills/feature-loop/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("--routes", loop)
+        self.assertIn("routes.md", loop)
+        self.assertIn("routes.md", (C / "skills/architecture-interview/SKILL.md").read_text(encoding="utf-8"))
+        self.assertIn("implementation.md", (C / "skills/napoleon-core/SKILL.md").read_text(encoding="utf-8"))
+        self.assertTrue((C / "templates/routes.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

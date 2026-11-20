@@ -165,7 +165,7 @@ Trong repo này:
 │   ├── verifying/            3 lớp
 │   └── using-codegraph/      câu hỏi → tool
 ├── agents/                   verifier.md (đối chiếu spec) · bug-hunter.md (săn lỗi vận hành) · perf-hunter.md (tìm nguyên nhân giật)
-├── tools/                    state.py conform.py audit.py affected.py stack.py perf.py report.py sources.py
+├── tools/                    state.py conform.py audit.py affected.py stack.py perf.py report.py implementation.py sources.py
 │                             guard.py (hook) + funcs.py globs.py cgdb.py imports.py + 3 hook .sh
 ├── templates/                khuôn cho mọi file sinh ra
 ├── instructions/             (trống) /start-build sinh
@@ -180,13 +180,13 @@ Trong dự án sau khi dùng:
 
 ```
 .claude/instructions/         CÁCH làm việc: project, architecture, conventions, module-map,
-                              rules.json, toolchain.json, decisions/ADR-*.md
+                              rules.json, toolchain.json, routes.md, decisions/ADR-*.md
 .claude/rules/*.md            rule ≤ 15 dòng theo path, trỏ về instructions/
 .claude/skills/project-*/     skill riêng dự án (có dấu generated)
 .claude/commands/project-*.md lệnh cho tác vụ lặp của dự án (có dấu generated)
 docs/sources/                 TÀI LIỆU BẠN ĐƯA: prd/ api/ design/ — tool chỉ đọc
 docs/napoleon/                ĐANG Ở ĐÂU: state.json, journal.md, codebase-report.md, stack.md,
-                              features/<tên>/{brief,spec,plan,verify}.md
+                              implementation.md, features/<tên>/{brief,spec,plan,verify}.md
 reports/roadmap.html          sinh bởi report.py, gitignore
 .codegraph/                   index codegraph, gitignore
 ```
@@ -203,7 +203,7 @@ Chạy từ gốc dự án. Mọi tool nhận `--root DIR`.
 python3 .claude/tools/state.py init
 python3 .claude/tools/state.py show [--brief|--json]
 python3 .claude/tools/state.py feature add|step|show <tên> [bước]
-python3 .claude/tools/state.py task add <feature> "<title>" [--files a,b]
+python3 .claude/tools/state.py task add <feature> "<title>" [--files a,b] [--routes /a,/b]
 python3 .claude/tools/state.py task start <feature> <id>
 python3 .claude/tools/state.py task done <feature> <id> [--skip-tests] [--skip-conform]
 python3 .claude/tools/state.py task block <feature> <id> "<lý do>"
@@ -288,6 +288,10 @@ File đổi (git diff + file chưa track) → ai import chúng bắc cầu → f
 
 Sinh `reports/roadmap.html` một file, không CDN. Nguồn: `state.json`, `git log`, codegraph, `verify.md`, `audit.py`. Mỗi bảng có dòng "nguồn: …"; thiếu nguồn → "không có dữ liệu". Muốn thêm số → sửa `report.py`, không sửa HTML.
 Mục Verify đếm riêng "máy + verifier" và "người chờ bạn", kèm số lần verify mỗi feature; mục "Việc hẹn lại" liệt kê followup đang mở.
+
+### `implementation.py`
+
+Sinh `docs/napoleon/implementation.md`: Tổng quan, Task, Thay đổi theo task, Test và bằng chứng, Route và màn, Nguồn sự thật, Logic tái dùng, Quyết định và việc hẹn lại. `state.py` gọi lại sau mỗi lần ghi nên file nằm trong commit của task; hook `guard.py` chặn sửa tay. `task add --routes /a,/b` gắn route cho task; `routes.md` (template `.claude/templates/routes.md`) khai route → màn, `route_pattern` trong `toolchain.json` (regex một nhóm bắt) tìm route trong code mà `routes.md` chưa khai. Sha của task trong file chậm một nhịp: bản trong commit của chính task ghi "commit kế tiếp", sha thật hiện ở lần ghi state sau; `/where` và `/report` làm mới.
 
 ## Hooks
 

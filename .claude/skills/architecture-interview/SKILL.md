@@ -41,7 +41,7 @@ Mỗi dòng trong `features.md`: `- <tên-a-z0-9-> — <một câu mô tả> —
 ## Sinh file
 1. Điền `templates/project.md`, `architecture.md`, `module-map.md` → `.claude/instructions/`. `conventions.md`: khối Chung giữ nguyên văn, điền Theo stack + Bổ sung + Không kiểm tự động.
 2. Điền `templates/rules.json` (phần chung đã có, thêm phần stack và bổ sung), `toolchain.json`. Chạy `conform.py` kiểm glob.
-3. ADR → `.claude/instructions/decisions/`.
+3. ADR → `.claude/instructions/decisions/`. `templates/routes.md` → `.claude/instructions/routes.md` với bảng rỗng.
 4. Khung thư mục rỗng theo kiến trúc: chỉ `mkdir` + `.gitkeep`. Không tạo file code.
 5. `python3 .claude/tools/state.py init`; `features.md` → `docs/napoleon/features.md`.
 6. `codegraph status`; chưa có → `codegraph init`.

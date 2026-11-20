@@ -30,11 +30,11 @@ Napoleon không viết lại quy trình superpowers. Ở mỗi bước của `/f
 
 ## File ở đâu
 
-- `.claude/instructions/` — **cách** làm việc: `project.md`, `architecture.md`, `conventions.md`, `module-map.md`, `rules.json`, `toolchain.json`, `decisions/ADR-*.md`. Sinh một lần bởi `/start-build`, người sửa tay được.
+- `.claude/instructions/` — **cách** làm việc: `project.md`, `architecture.md`, `conventions.md`, `module-map.md`, `rules.json`, `toolchain.json`, `routes.md`, `decisions/ADR-*.md`. Sinh một lần bởi `/start-build`, người sửa tay được.
 - `.claude/rules/` — rule ≤ 15 dòng, frontmatter `paths:`, trỏ về mục trong `instructions/`. Sinh bởi `/setup-agents`.
 - `.claude/skills/project-*/`, `.claude/agents/project-*.md` — sinh bởi `/setup-agents`, có dấu generated.
 - `docs/sources/{prd,api,design}/` — **tài liệu người dùng đưa**: PRD, API docs, Figma export/mockup. Tool chỉ đọc. `/start-build` và bước spec đọc từ đây.
-- `docs/napoleon/` — **đang ở đâu**: `state.json`, `journal.md`, `codebase-report.md`, `features/<tên>/{brief,spec,plan,verify}.md`. `brief.md` = đề bài nguyên văn, không sửa sau khi có spec.
+- `docs/napoleon/` — **đang ở đâu**: `state.json`, `journal.md`, `codebase-report.md`, `implementation.md`, `features/<tên>/{brief,spec,plan,verify}.md`. `brief.md` = đề bài nguyên văn, không sửa sau khi có spec. Xem đã làm gì → `implementation.md` (sinh bởi `implementation.py`, không sửa tay).
 - Spec/plan **luôn** ở `docs/napoleon/features/<tên>/`. Superpowers brainstorming/writing-plans mặc định ghi `docs/superpowers/` — phải nói rõ đường dẫn napoleon khi gọi.
 - Không có `context/`, `drafts/`, `commands/` ngoài `.claude/`: quy ước ở `instructions/`, code dở ở git branch, lệnh ở `.claude/commands/project-*`.
 - `reports/roadmap.html` — sinh bởi `report.py`. Không commit mặc định.

@@ -50,6 +50,7 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 - `python3 .claude/tools/perf.py <ca>` — khung rớt/FPS của một thao tác trên máy Android thật; `--save-baseline` ghi mốc để so.
 - `python3 .claude/tools/sources.py diff` — `docs/sources/` đổi gì so với mốc, harness trích dẫn ở đâu.
 - `python3 .claude/tools/report.py` — roadmap.html.
+- `python3 .claude/tools/implementation.py` — bảng task/file đổi/test/route/nguồn sự thật → `docs/napoleon/implementation.md`; `state.py` tự gọi sau mỗi lần ghi, không sửa tay.
 
 ## Khi viết agent/skill/rule cho dự án
 - Mô tả ≤ 3 dòng. Chỉ ghi việc phải làm và việc cấm. Không giải thích dài.
@@ -58,9 +59,9 @@ Napoleon bổ sung cho superpowers phần **riêng của từng dự án**: ki�
 - File sinh ra: frontmatter ở dòng 1, dòng đầu thân là `<!-- napoleon:generated -->`.
 
 ## Vị trí
-- `.claude/instructions/` — cách làm việc trong dự án này (sinh bởi `/start-build`).
+- `.claude/instructions/` — cách làm việc trong dự án này (sinh bởi `/start-build`), có `routes.md` (route → màn).
 - `.claude/rules/` — rule ngắn theo path (sinh bởi `/setup-agents`).
 - `docs/sources/{prd,api,design}/` — tài liệu bạn đưa; tool chỉ đọc.
-- `docs/napoleon/` — đang ở đâu: `state.json`, `journal.md`, `codebase-report.md`, `stack.md`, `features/<tên>/{brief,spec,plan,verify}.md`.
+- `docs/napoleon/` — đang ở đâu: `state.json`, `journal.md`, `codebase-report.md`, `stack.md`, `implementation.md`, `features/<tên>/{brief,spec,plan,verify}.md`.
 - Spec/plan của feature **luôn** ở `docs/napoleon/features/<tên>/`, kể cả khi gọi superpowers brainstorming/writing-plans. Không tạo `docs/superpowers/` trong dự án.
 - `reports/` — sinh ra, không sửa tay.
