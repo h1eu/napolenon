@@ -74,7 +74,9 @@ class CoreTest(Base):
         md = self.gen()
         self.assertTrue(md.startswith("<!-- napoleon:generated"))
         heads = [l for l in md.splitlines() if l.startswith("## ")]
-        self.assertEqual(heads[:3], ["## Tổng quan", "## Task", "## Thay đổi theo task"])
+        self.assertEqual(heads, ["## Tổng quan", "## Task", "## Thay đổi theo task", "## Test và bằng chứng",
+                                 "## Route và màn", "## Nguồn sự thật", "## Logic tái dùng",
+                                 "## Quyết định và việc hẹn lại"])
 
     def test_deterministic_and_no_rewrite(self):
         a = self.gen()
@@ -248,6 +250,68 @@ class RouteTest(Base):
     def test_non_utf8_source_file(self):
         (self.root / "lib/bad.dart").write_bytes(b"\xff\xfe class X {}\n")
         self.assertIn("| /login |", self.sec())
+
+    def test_empty_screen_cell_is_not_found(self):
+        write(self.root, ".claude/instructions/routes.md", self.ROUTES + "| /blank | | login | |\n")
+        self.assertIn("| /blank | — | login | — | chưa có task | — | thiếu route, màn |", self.sec())
+
+
+class ArchTest(Base):
+    ARCH = ("# Kiến trúc\n\n## Nguồn sự thật dùng chung\nmô tả\n\n"
+            "| Trạng thái | Owner (class, path) | Phát ra qua | Ai được ghi |\n|---|---|---|---|\n"
+            "| auth | `AuthManager, core/auth/` | `Stream<AuthState>` | chỉ AuthManager |\n"
+            "| premium | `PremiumManager, core/iap/` | `Stream<bool>` | chỉ PremiumManager |\n"
+            "| <network status> | | | |\n\n"
+            "## Logic tái dùng (manager)\n| Class | Việc duy nhất | Nằm ở | Test |\n|---|---|---|---|\n"
+            "| `AuthManager` | giữ phiên | `lib/core/auth/` | `test/a_test.dart` |\n"
+            "| `CartRuntime` | tính giỏ | `lib/core/cart/` | `test/cart_test.dart` |\n\n## DI\n")
+
+    def setUp(self):
+        super().setUp()
+        write(self.root, ".claude/instructions/architecture.md", self.ARCH)
+        write(self.root, "lib/core/auth/auth_manager.dart", "class AuthManager {}\n")
+        write(self.root, "lib/core/cart/cart_runtime.dart", "class CartRuntime {}\n")
+        write(self.root, "test/a_test.dart", "void main() {}\n")
+
+    def test_truth_table_gets_in_code_column(self):
+        s = self.gen().split("## Nguồn sự thật")[1].split("\n## ")[0]
+        self.assertIn("| auth | `AuthManager, core/auth/` | `Stream<AuthState>` | chỉ AuthManager | có |", s)
+        self.assertIn("| chỉ PremiumManager | thiếu |", s)
+        self.assertNotIn("network status", s)
+
+    def test_manager_table_checks_class_and_test_file(self):
+        s = self.gen().split("## Logic tái dùng")[1].split("\n## ")[0]
+        self.assertIn("| `test/a_test.dart` | có · test có |", s)
+        self.assertIn("| `test/cart_test.dart` | có · thiếu test |", s)
+
+    def test_empty_owner_cell_is_not_found(self):
+        write(self.root, ".claude/instructions/architecture.md",
+              "## Nguồn sự thật dùng chung\n| Trạng thái | Owner | Phát ra qua | Ai ghi |\n|---|---|---|---|\n"
+              "| x | | | |\n")
+        self.assertIn("| x | — | — | — | thiếu |", self.gen())
+
+    def test_no_architecture_file(self):
+        (self.root / ".claude/instructions/architecture.md").unlink()
+        self.assertIn("chưa có .claude/instructions/architecture.md", self.gen())
+
+    def test_empty_tables_say_not_declared(self):
+        write(self.root, ".claude/instructions/architecture.md", "# Kiến trúc\n")
+        self.assertIn("chưa khai", self.gen().split("## Nguồn sự thật")[1].split("\n## ")[0])
+
+    def test_decisions_join_followups(self):
+        write(self.root, ".claude/instructions/decisions/012-sheet.md", "# ADR-012: Dùng bottom sheet\n\nNgày: x\n")
+        write(self.root, ".claude/instructions/decisions/003-di.md", "# ADR-003: DI bằng tay\n")
+        self.st("followup", "add", "login", "Đổi lại khi design cập nhật", "--source", "ADR-012")
+        self.st("followup", "add", "login", "Dọn log")
+        self.st("followup", "add", "login", "Đã xong", "--source", "ADR-003"); self.st("followup", "done", "3")
+        s = self.gen().split("## Quyết định và việc hẹn lại")[1]
+        self.assertLess(s.index("ADR-003"), s.index("ADR-012"))
+        self.assertIn("| ADR-003 | DI bằng tay | — |", s)
+        self.assertIn("| ADR-012 | Dùng bottom sheet | #1 Đổi lại khi design cập nhật |", s)
+        self.assertIn("| — | — | #2 Dọn log |", s)
+
+    def test_no_decisions_no_followups(self):
+        self.assertIn("không có", self.gen().split("## Quyết định và việc hẹn lại")[1])
 
 
 if __name__ == "__main__":

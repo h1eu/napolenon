@@ -262,9 +262,11 @@ class Code:
         self.text = "\n".join(chunks)
 
     def has(self, text):
-        return text in self.text
+        return bool(text.strip()) and text in self.text
 
     def has_word(self, name):
+        if not name.strip():
+            return False
         return re.search(r"(?<![\w$])" + re.escape(name) + r"(?![\w$])", self.text) is not None
 
     def findall(self, pattern):
@@ -323,6 +325,65 @@ def render_routes(root, state, code):
     return section("Route và màn", body + "\n\n" + "\n".join(notes), src)
 
 
+ARCH_REL = ".claude/instructions/architecture.md"
+ARCH_MISSING = f"chưa có {ARCH_REL}"
+
+
+def _arch_text(root):
+    p = root / ARCH_REL
+    return p.read_text(encoding="utf-8", errors="replace") if p.exists() else None
+
+
+def render_truth(root, code):
+    src = f"{ARCH_REL}, file nguồn"
+    arch = _arch_text(root)
+    if arch is None:
+        return section("Nguồn sự thật", ARCH_MISSING, src) + "\n" + section("Logic tái dùng", ARCH_MISSING, src)
+    truth_rows = []
+    for r in md_table(arch, "## Nguồn sự thật dùng chung"):
+        r = (r + [""] * 4)[:4]
+        m = re.search(r"[A-Z]\w+", r[1])
+        truth_rows.append(r + ["có" if m and code.has_word(m.group(0)) else "thiếu"])
+    truth = table(["Trạng thái", "Owner (class, path)", "Phát ra qua", "Ai được ghi", "Trong code"], truth_rows) \
+        if truth_rows else "chưa khai"
+    mgr_rows = []
+    for r in md_table(arch, "## Logic tái dùng (manager)"):
+        r = (r + [""] * 4)[:4]
+        name = r[0].strip("`")
+        if not code.has_word(name):
+            status = "thiếu"
+        else:
+            test = r[3].replace("`", "").strip()
+            status = "có · test có" if test and (root / test).exists() else "có · thiếu test"
+        mgr_rows.append(r + [status])
+    mgr = table(["Class", "Việc duy nhất", "Nằm ở", "Test", "Trong code"], mgr_rows) if mgr_rows else "chưa khai"
+    return section("Nguồn sự thật", truth, src) + "\n" + section("Logic tái dùng", mgr, src)
+
+
+def render_decisions(root, state):
+    adrs = []
+    d = root / ".claude/instructions/decisions"
+    for p in sorted(d.glob("*.md")) if d.is_dir() else []:
+        first = next((l for l in p.read_text(encoding="utf-8", errors="replace").splitlines()
+                      if l.startswith("# ")), "")
+        m = re.search(r"ADR-\d+", first)
+        if m:
+            title = first.split(":", 1)[1].strip() if ":" in first else ""
+            adrs.append((m.group(0), title))
+    adrs.sort(key=lambda a: (int(a[0][4:]), a[0]))
+    opens = [f for f in state.get("followups") or [] if f.get("status") == "open"]
+    rows, used = [], set()
+    for code_, title in adrs:
+        mine = [f for f in opens if code_ in (f.get("source") or "")]
+        used.update(f.get("id") for f in mine)
+        rows.append([code_, title, "; ".join(f"#{f.get('id')} {f.get('text')}" for f in mine)])
+    for f in opens:
+        if f.get("id") not in used:
+            rows.append([None, None, f"#{f.get('id')} {f.get('text')}"])
+    body = table(["ADR", "Tiêu đề", "Followup mở"], rows) if rows else "không có"
+    return section("Quyết định và việc hẹn lại", body, ".claude/instructions/decisions/, docs/napoleon/state.json")
+
+
 def build(root):
     state = load_state(root)
     if state is None:
@@ -330,7 +391,8 @@ def build(root):
     features = state.get("features") or {}
     code = Code(root)
     parts = [overview(features), tasks_section(root, features), changes_section(features),
-             render_tests(root, state), render_routes(root, state, code)]
+             render_tests(root, state), render_routes(root, state, code), render_truth(root, code),
+             render_decisions(root, state)]
     return HEADER + "\n\n# Implementation\n\n" + "\n".join(parts)
 
 
