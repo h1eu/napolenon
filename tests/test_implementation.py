@@ -189,5 +189,66 @@ class EvidenceTest(Base):
         self.assertIn("login — verify lần 1 fail (null-state), lần 2 pass · máy+verifier 2/3 · người chờ 2", self.gen())
 
 
+class RouteTest(Base):
+    ROUTES = ("# Route\n\n| Route | Màn (class) | Feature | Design |\n|---|---|---|---|\n"
+              "| /login | LoginScreen | login | docs/sources/design/login.png |\n"
+              "| /forgot | ForgotScreen | login | |\n"
+              "| /ghost | GhostScreen | login | |\n"
+              "| <route> | <Màn> | <feature> | |\n")
+
+    def setUp(self):
+        super().setUp()
+        write(self.root, ".claude/instructions/routes.md", self.ROUTES)
+        write(self.root, "lib/router.dart",
+              "GoRoute(path: '/login', builder: (_) => LoginScreen());\nGoRoute(path: '/forgot');\n"
+              "GoRoute(path: '/extra');\nclass ForgotScreenState {}\n")
+        write(self.root, "lib/login_screen.dart", "class LoginScreen {}\n")
+        self.st("task", "add", "login", "A", "--routes", "/login")
+        self.st("task", "add", "login", "B", "--routes", "/login,/forgot")
+        self.st("task", "add", "login", "C", "--routes", "/nowhere")
+        self.st("task", "done", "login", "1", "--skip-tests", "--skip-conform")
+
+    def sec(self):
+        return self.gen().split("## Route và màn")[1].split("\n## ")[0]
+
+    def test_rows(self):
+        s = self.sec()
+        self.assertIn("| /login | LoginScreen | login | login#1, login#2 | đang làm | docs/sources/design/login.png | có |", s)
+        self.assertIn("| /forgot | ForgotScreen | login | login#2 | đang làm | — | thiếu màn |", s)
+        self.assertIn("| /ghost | GhostScreen | login | — | chưa có task | — | thiếu route, màn |", s)
+        self.assertNotIn("<route>", s)
+
+    def test_all_tasks_done_is_xong(self):
+        self.st("task", "done", "login", "2", "--skip-tests", "--skip-conform")
+        self.assertIn("| login#1, login#2 | xong |", self.sec())
+
+    def test_task_route_not_declared(self):
+        self.assertIn("- task login#3 khai route /nowhere không có trong routes.md", self.sec())
+
+    def test_pattern_off_says_so(self):
+        self.assertIn("chưa bật dò route trong code", self.sec())
+
+    def test_pattern_finds_undeclared_route(self):
+        self.toolchain({"test": "exit 0", "test_files": ["test/**"], "route_pattern": "path:\\s*'([^']+)'"})
+        s = self.sec()
+        self.assertIn("- route /extra có trong code, chưa khai trong routes.md", s)
+        self.assertNotIn("route /login có trong code", s)
+
+    def test_bad_pattern_does_not_break_report(self):
+        for bad in ("path: '([^']+", "path: '[^']+'", "(a)(b)"):
+            self.toolchain({"test": "exit 0", "test_files": ["test/**"], "route_pattern": bad})
+            md = self.gen()
+            self.assertIn("route_pattern không hợp lệ", md)
+            self.assertIn("## Tổng quan", md)
+
+    def test_no_routes_file(self):
+        (self.root / ".claude/instructions/routes.md").unlink()
+        self.assertIn("chưa có .claude/instructions/routes.md", self.sec())
+
+    def test_non_utf8_source_file(self):
+        (self.root / "lib/bad.dart").write_bytes(b"\xff\xfe class X {}\n")
+        self.assertIn("| /login |", self.sec())
+
+
 if __name__ == "__main__":
     unittest.main()

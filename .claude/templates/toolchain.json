@@ -1,5 +1,6 @@
 {
-  "_doc": "Lệnh theo stack. {file} được check.sh thay bằng đường dẫn file vừa sửa; {files} được affected.py thay bằng danh sách file test. Lệnh không hỗ trợ từng file thì bỏ {file}/{test_one}. Xoá đuôi không dùng.",
+  "_doc": "Lệnh theo stack. {file} được check.sh thay bằng đường dẫn file vừa sửa; {files} được affected.py thay bằng danh sách file test. Lệnh không hỗ trợ từng file thì bỏ {file}/{test_one}. Xoá đuôi không dùng. route_pattern là regex đúng một nhóm bắt để implementation.py dò route trong code (vd: path:\\s*'([^']+)'); để trống thì không dò.",
+  "route_pattern": "",
   "by_ext": {
     ".dart": { "format": "dart format {file}", "analyze": "dart analyze {file}" },
     ".kt":   { "format": "ktlint -F {file}", "analyze": "" },

@@ -219,13 +219,118 @@ def render_tests(root, state):
     return section("Test và bằng chứng", body, "plan.md, verify.md, docs/napoleon/state.json")
 
 
+def md_table(text, heading):
+    lines = text.splitlines()
+    start = 0
+    if heading is not None:
+        want = heading.lstrip("#").strip()
+        for i, l in enumerate(lines):
+            if l.startswith("#") and l.lstrip("#").strip() == want:
+                start = i + 1
+                break
+        else:
+            return []
+    rows, started = [], False
+    for l in lines[start:]:
+        s = l.strip()
+        if s.startswith("|"):
+            started = True
+            rows.append([c.strip() for c in s.strip("|").split("|")])
+        elif started:
+            break
+        elif heading is not None and s.startswith("#"):
+            return []
+    out = []
+    for r in rows[1:]:
+        if all(re.fullmatch(r":?-{3,}:?", c) for c in r if c) and any(r):
+            continue
+        if r and r[0].replace("`", "").startswith("<"):
+            continue
+        out.append(r)
+    return out
+
+
+class Code:
+    def __init__(self, root):
+        import audit
+        chunks = []
+        for f in audit.source_files(root):
+            try:
+                chunks.append((root / f).read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                continue
+        self.text = "\n".join(chunks)
+
+    def has(self, text):
+        return text in self.text
+
+    def has_word(self, name):
+        return re.search(r"(?<![\w$])" + re.escape(name) + r"(?![\w$])", self.text) is not None
+
+    def findall(self, pattern):
+        return set(pattern.findall(self.text))
+
+
+def _route_pattern(root):
+    p = root / ".claude/instructions/toolchain.json"
+    try:
+        v = json.loads(p.read_text(encoding="utf-8")).get("route_pattern")
+    except (OSError, ValueError, AttributeError):
+        return None
+    return v if isinstance(v, str) and v else None
+
+
+def _code_routes_lines(root, code, declared):
+    raw = _route_pattern(root)
+    if not raw:
+        return ["chưa bật dò route trong code (đặt route_pattern trong .claude/instructions/toolchain.json)"]
+    try:
+        pat = re.compile(raw)
+    except re.error as e:
+        return [f"route_pattern không hợp lệ: {e}"]
+    if pat.groups != 1:
+        return [f"route_pattern không hợp lệ: cần đúng 1 nhóm bắt, có {pat.groups}"]
+    found = sorted(r for r in code.findall(pat) if r not in declared)
+    return [f"- route {r} có trong code, chưa khai trong routes.md" for r in found]
+
+
+def render_routes(root, state, code):
+    src = ".claude/instructions/routes.md, docs/napoleon/state.json, file nguồn"
+    p = root / ".claude/instructions/routes.md"
+    if not p.exists():
+        return section("Route và màn", "chưa có .claude/instructions/routes.md — tạo từ .claude/templates/routes.md", src)
+    declared = md_table(p.read_text(encoding="utf-8", errors="replace"), None)
+    features = state.get("features") or {}
+    by_route, uses = {}, []
+    for name, f in features.items():
+        for t in sorted(f.get("tasks") or [], key=lambda x: x.get("id") or 0):
+            for r in t.get("routes") or []:
+                by_route.setdefault(r, []).append((tid(name, t), t.get("status")))
+                uses.append((tid(name, t), r))
+    rows = []
+    for r in declared:
+        r = (r + [""] * 4)[:4]
+        route, screen = r[0].strip("`"), r[1].strip("`")
+        ts = by_route.get(route, [])
+        status = "chưa có task" if not ts else "xong" if all(s == "done" for _, s in ts) else "đang làm"
+        missing = [w for w, ok in (("route", code.has(route)), ("màn", code.has_word(screen))) if not ok]
+        rows.append([route, screen, r[2], ", ".join(i for i, _ in ts), status, r[3],
+                     "có" if not missing else "thiếu " + ", ".join(missing)])
+    known = {r[0].strip("`") for r in declared}
+    body = table(["Route", "Màn", "Feature", "Task", "Trạng thái", "Design", "Trong code"], rows)
+    notes = [f"- task {i} khai route {r} không có trong routes.md" for i, r in uses if r not in known]
+    notes += _code_routes_lines(root, code, known)
+    return section("Route và màn", body + "\n\n" + "\n".join(notes), src)
+
+
 def build(root):
     state = load_state(root)
     if state is None:
         return None
     features = state.get("features") or {}
+    code = Code(root)
     parts = [overview(features), tasks_section(root, features), changes_section(features),
-             render_tests(root, state)]
+             render_tests(root, state), render_routes(root, state, code)]
     return HEADER + "\n\n# Implementation\n\n" + "\n".join(parts)
 
 
