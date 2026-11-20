@@ -72,18 +72,49 @@ def rev_list(root, *args):
     return r.stdout.split() if r is not None and r.returncode == 0 else []
 
 
-def task_commit(root, t):
+FULL_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+class GitFacts:
+    """Lịch sử HEAD đọc một lần cho cả báo cáo: state.py sinh lại sau mỗi lần ghi, mỗi task vài lệnh git là quá chậm."""
+
+    def __init__(self, root):
+        self.root = root
+        self.ok = has_git(root)
+        self.first = rev_list(root, "--first-parent", "HEAD") if self.ok else []
+        self.index = {sha: i for i, sha in enumerate(self.first)}
+        self.ancestors = set(rev_list(root, "HEAD")) if self.ok else set()
+
+
+def task_commit(root, t, facts=None):
     if t.get("status") != "done" or not t.get("commit"):
         return DASH
-    if not has_git(root):
+    facts = facts or GitFacts(root)
+    if not facts.ok:
         return DASH
-    if not is_ancestor(root, t["commit"], "HEAD"):
+    commit, base = t["commit"], t.get("base") or ""
+    k = facts.index.get(commit)
+    if k is None:
+        return _task_commit_slow(root, commit, base, facts)
+    if k == 0:
+        return "commit kế tiếp"
+    if not base or base == commit:
+        mid = 0
+    elif base in facts.index:
+        mid = max(0, facts.index[base] - k)
+    else:
+        mid = len(rev_list(root, "--first-parent", f"{base}..{commit}"))
+    return facts.first[k - 1][:7] + (f" (+{mid})" if mid else "")
+
+
+def _task_commit_slow(root, commit, base, facts):
+    # sha đủ 40 ký tự không có trong tổ tiên HEAD thì chắc chắn đã bị viết lại; sha rút gọn phải hỏi git
+    if commit not in facts.ancestors and (FULL_SHA.fullmatch(commit) or not is_ancestor(root, commit, "HEAD")):
         return "— (lịch sử đã viết lại)"
-    after = rev_list(root, "--reverse", "--first-parent", f"{t['commit']}..HEAD")
+    after = rev_list(root, "--reverse", "--first-parent", f"{commit}..HEAD")
     if not after:
         return "commit kế tiếp"
-    base = t.get("base") or ""
-    mid = len(rev_list(root, "--first-parent", f"{base}..{t['commit']}")) if base and base != t["commit"] else 0
+    mid = len(rev_list(root, "--first-parent", f"{base}..{commit}")) if base and base != commit else 0
     return after[0][:7] + (f" (+{mid})" if mid else "")
 
 
@@ -124,9 +155,12 @@ def overview(features):
 
 def tasks_section(root, features):
     parts = []
+    facts = None
+    if any(t.get("status") == "done" and t.get("commit") for f in features.values() for t in f.get("tasks") or []):
+        facts = GitFacts(root)
     for name, f in features.items():
         rows = [[tid(name, t), t.get("title"), _status_text(t), ", ".join(t.get("routes") or []),
-                 len(t.get("changed") or []) or None, _test_text(t), task_commit(root, t)]
+                 len(t.get("changed") or []) or None, _test_text(t), task_commit(root, t, facts)]
                 for t in f.get("tasks") or []]
         if rows:
             parts.append(f"### {name}\n\n" + table(["ID", "Việc", "Trạng thái", "Route", "File đổi", "Test", "Commit"], rows))

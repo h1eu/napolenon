@@ -51,10 +51,16 @@ def in_scope(rel, skip=SKIP_DIRS):
 
 
 def source_files(root, skip=SKIP_DIRS):
+    # state.py gọi mỗi lần ghi: cắt thư mục bỏ qua ngay khi đi xuống, không quét .git/build rồi mới lọc
     out = []
-    for p in root.rglob("*"):
-        if p.is_file() and p.suffix in LANG_BY_EXT and in_scope(p.relative_to(root).as_posix(), skip):
-            out.append(p.relative_to(root).as_posix())
+    for dirpath, dirs, files in os.walk(root):
+        rel_dir = Path(dirpath).relative_to(root).as_posix()
+        prefix = "" if rel_dir == "." else rel_dir + "/"
+        dirs[:] = [d for d in dirs if d not in skip and not (prefix + d + "/").startswith(SKIP_PREFIXES)]
+        for name in files:
+            rel = prefix + name
+            if Path(name).suffix in LANG_BY_EXT and in_scope(rel, skip) and os.path.isfile(os.path.join(dirpath, name)):
+                out.append(rel)
     return sorted(out)
 
 

@@ -1,10 +1,12 @@
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / ".claude" / "tools"
@@ -175,6 +177,28 @@ class AuditTest(unittest.TestCase):
         import audit
         d = audit.collect(self.root, "scan", 2)
         self.assertEqual(d["files"], 6)
+
+    def test_source_files_prunes_skipped_dirs(self):
+        sys.path.insert(0, str(TOOLS))
+        import audit
+        for rel in ("build/x.dart", "lib/build/y.dart", ".git/objects/z.dart", "docs/sources/api/s.dart",
+                    "node_modules/p/q.js"):
+            (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / rel).write_text("class Q {}\n")
+        seen = []
+        real = os.scandir
+
+        def spy(path="."):
+            seen.append(Path(path).relative_to(self.root).as_posix())
+            return real(path)
+
+        import pathlib
+        acc = getattr(pathlib, "_normal_accessor", None)   # Python ≤ 3.10: rglob gọi scandir qua accessor
+        with mock.patch.object(os, "scandir", spy), \
+                (mock.patch.object(acc, "scandir", spy) if acc is not None and hasattr(acc, "scandir") else mock.patch.dict({})):
+            got = audit.source_files(self.root)
+        self.assertEqual(got, sorted(FILES))
+        self.assertFalse([d for d in seen if d.split("/")[0] in (".git", "build", "node_modules")], seen)
 
 
 if __name__ == "__main__":

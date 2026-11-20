@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 TOOLS = ROOT / ".claude" / "tools"
@@ -150,6 +151,73 @@ class CoreTest(Base):
         tool("implementation.py", self.bare)
         md = (self.bare / "docs/napoleon/implementation.md").read_text(encoding="utf-8")
         self.assertTrue(self.row(md, "x#1").endswith("| — |"))
+
+
+class GitCostTest(Base):
+    """build() chạy sau mỗi lần ghi state → số lệnh git không được tăng theo số task."""
+
+    def git(self, *args):
+        return subprocess.run(["git", "-C", str(self.root), *args], capture_output=True, text=True, env=self.env)
+
+    def empty_commit(self, msg):
+        self.git("commit", "-q", "--allow-empty", "-m", msg)
+        return self.head()
+
+    def put_tasks(self, tasks):
+        p = self.root / "docs/napoleon/state.json"
+        s = json.loads(p.read_text())
+        s["features"]["login"]["tasks"] = tasks
+        p.write_text(json.dumps(s))
+
+    def build_counting(self):
+        sys.path.insert(0, str(TOOLS))
+        try:
+            import implementation
+        finally:
+            sys.path.remove(str(TOOLS))
+        calls = []
+        real = subprocess.run
+
+        def counting(cmd, *a, **k):
+            if cmd and cmd[0] == "git":
+                calls.append(cmd)
+            return real(cmd, *a, **k)
+
+        with mock.patch.object(implementation.subprocess, "run", counting):
+            md = implementation.build(self.root)
+        return md, calls
+
+    def test_git_calls_do_not_grow_with_tasks(self):
+        shas = [self.empty_commit(f"c{i}") for i in range(31)]
+        self.put_tasks([{"id": i + 1, "title": "t", "status": "done", "base": shas[i], "commit": shas[i]}
+                        for i in range(30)] + [{"id": 31, "title": "t", "status": "done", "base": shas[29],
+                                                "commit": shas[30]}])
+        md, calls = self.build_counting()
+        self.assertLessEqual(len(calls), 6, [c[3:5] for c in calls[:8]])
+        self.assertTrue(self.row(md, "| login#1 |").endswith(f"| {shas[1][:7]} |"))
+        self.assertTrue(self.row(md, "| login#30 |").endswith(f"| {shas[30][:7]} |"))
+        self.assertTrue(self.row(md, "| login#31 |").endswith("| commit kế tiếp |"))
+
+    def test_mid_commits_counted_from_index(self):
+        base = self.empty_commit("base")
+        self.empty_commit("giữa 1")
+        self.empty_commit("giữa 2")
+        done = self.empty_commit("done")
+        close = self.empty_commit("đóng")
+        self.put_tasks([{"id": 1, "title": "t", "status": "done", "base": base, "commit": done}])
+        md, _ = self.build_counting()
+        self.assertTrue(self.row(md, "| login#1 |").endswith(f"| {close[:7]} (+3) |"))
+
+    def test_commit_off_first_parent_chain_falls_back(self):
+        base = self.head()
+        self.git("checkout", "-q", "-b", "side")
+        side = self.empty_commit("side")
+        self.git("checkout", "-q", "-")
+        main2 = self.empty_commit("main 2")
+        self.git("merge", "-q", "--no-ff", "-m", "merge", "side")
+        self.put_tasks([{"id": 1, "title": "t", "status": "done", "base": base, "commit": side}])
+        md, _ = self.build_counting()
+        self.assertTrue(self.row(md, "| login#1 |").endswith(f"| {main2[:7]} (+1) |"))
 
 
 class EvidenceTest(Base):
