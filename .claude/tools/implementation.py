@@ -354,7 +354,7 @@ def render_truth(root, code):
             status = "thiếu"
         else:
             test = r[3].replace("`", "").strip()
-            status = "có · test có" if test and (root / test).exists() else "có · thiếu test"
+            status = "có · test có" if test and (root / test).is_file() else "có · thiếu test"
         mgr_rows.append(r + [status])
     mgr = table(["Class", "Việc duy nhất", "Nằm ở", "Test", "Trong code"], mgr_rows) if mgr_rows else "chưa khai"
     return section("Nguồn sự thật", truth, src) + "\n" + section("Logic tái dùng", mgr, src)
@@ -374,7 +374,7 @@ def render_decisions(root, state):
     opens = [f for f in state.get("followups") or [] if f.get("status") == "open"]
     rows, used = [], set()
     for code_, title in adrs:
-        mine = [f for f in opens if code_ in (f.get("source") or "")]
+        mine = [f for f in opens if code_ in re.findall(r"ADR-\d+", f.get("source") or "")]
         used.update(f.get("id") for f in mine)
         rows.append([code_, title, "; ".join(f"#{f.get('id')} {f.get('text')}" for f in mine)])
     for f in opens:

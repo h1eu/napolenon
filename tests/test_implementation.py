@@ -310,6 +310,20 @@ class ArchTest(Base):
         self.assertIn("| ADR-012 | Dùng bottom sheet | #1 Đổi lại khi design cập nhật |", s)
         self.assertIn("| — | — | #2 Dọn log |", s)
 
+    def test_followup_matches_whole_adr_code(self):
+        write(self.root, ".claude/instructions/decisions/001-a.md", "# ADR-1: A\n")
+        write(self.root, ".claude/instructions/decisions/012-b.md", "# ADR-12: B\n")
+        self.st("followup", "add", "login", "Việc", "--source", "ADR-12")
+        s = self.gen().split("## Quyết định và việc hẹn lại")[1]
+        self.assertIn("| ADR-1 | A | — |", s)
+        self.assertIn("| ADR-12 | B | #1 Việc |", s)
+
+    def test_manager_test_cell_directory_is_not_a_test(self):
+        write(self.root, ".claude/instructions/architecture.md",
+              "## Logic tái dùng (manager)\n| Class | Việc | Nằm ở | Test |\n|---|---|---|---|\n"
+              "| `AuthManager` | x | `lib/` | `test/` |\n")
+        self.assertIn("| `test/` | có · thiếu test |", self.gen())
+
     def test_no_decisions_no_followups(self):
         self.assertIn("không có", self.gen().split("## Quyết định và việc hẹn lại")[1])
 
