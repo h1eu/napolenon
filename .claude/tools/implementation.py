@@ -8,12 +8,15 @@ Thiếu nguồn → "—". Muốn thêm cột/số → sửa file này, không g
 """
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 TOOLS = str(Path(__file__).resolve().parent)
 sys.path.insert(0, TOOLS)
+
+import report  # noqa: E402
 
 STATE_REL = Path("docs/napoleon/state.json")
 OUT_REL = Path("docs/napoleon/implementation.md")
@@ -142,12 +145,87 @@ def changes_section(features):
     return section("Thay đổi theo task", body, "docs/napoleon/state.json")
 
 
+def plan_tests(root, feature):
+    p = root / "docs/napoleon/features" / feature / "plan.md"
+    if not p.exists():
+        return {}
+    out = {}
+    cur = None
+    for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        m = re.match(r"###\s+Task\s+(\d+)\b", line)
+        if m:
+            cur = int(m.group(1))
+            continue
+        if line.startswith("#"):
+            cur = None
+        m = re.match(r"\s*-\s*Test chứng minh:\s*(.*\S)", line)
+        if m and cur is not None:
+            out.setdefault(cur, m.group(1))
+    return out
+
+
+def _ran_text(test):
+    if not test:
+        return DASH
+    if test.get("mode") == "all":
+        return "toàn bộ"
+    return ", ".join(test.get("files") or [])
+
+
+def _result_text(test):
+    result = test.get("result")
+    if not result:
+        return DASH
+    return f"{result}: {test['tail']}" if test.get("tail") else result
+
+
+def _verify_line(root, name, f, counts):
+    parts = []
+    v = f.get("verify") or []
+    if v:
+        items = []
+        for i, e in enumerate(v, 1):
+            s = f"lần {i} {e.get('result', '')}".strip()
+            issues = e.get("issues") or []
+            items.append(s + (f" ({', '.join(issues)})" if issues else ""))
+        parts.append(", ".join(items))
+    if name in counts:
+        done, total, human = counts[name]
+        parts.append(f"máy+verifier {done}/{total}")
+        parts.append(f"người chờ {human}")
+    return f"{name} — verify " + " · ".join(parts) if parts else None
+
+
+def render_tests(root, state):
+    features = state.get("features") or {}
+    counts = report.verify_counts(root)
+    rows, lines = [], []
+    for name, f in features.items():
+        plan = plan_tests(root, name)
+        for t in sorted(f.get("tasks") or [], key=lambda x: x.get("id") or 0):
+            test, checks = t.get("test") or {}, t.get("checks") or {}
+            if not test and not checks:
+                continue
+            cmd = test.get("command")
+            rows.append([tid(name, t), plan.get(t.get("id")), _ran_text(test), f"`{cmd}`" if cmd else None,
+                         _result_text(test), checks.get("conform")])
+        line = _verify_line(root, name, f, counts)
+        if line:
+            lines.append(line)
+    body = table(["ID", "Test chứng minh (plan)", "Test đã chạy", "Lệnh", "Kết quả", "Conform"], rows) \
+        if rows else "chưa có task nào chạy test"
+    if lines:
+        body += "\n\n" + "\n\n".join(lines)
+    return section("Test và bằng chứng", body, "plan.md, verify.md, docs/napoleon/state.json")
+
+
 def build(root):
     state = load_state(root)
     if state is None:
         return None
     features = state.get("features") or {}
-    parts = [overview(features), tasks_section(root, features), changes_section(features)]
+    parts = [overview(features), tasks_section(root, features), changes_section(features),
+             render_tests(root, state)]
     return HEADER + "\n\n# Implementation\n\n" + "\n".join(parts)
 
 

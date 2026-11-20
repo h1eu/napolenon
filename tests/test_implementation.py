@@ -150,5 +150,44 @@ class CoreTest(Base):
         self.assertTrue(self.row(md, "x#1").endswith("| — |"))
 
 
+class EvidenceTest(Base):
+    PLAN = ("# Plan: login\n\n## Task\n### Task 1: Form\n- File: lib/a.dart\n"
+            "- Test chứng minh: `submits valid form` trong `test/a_test.dart`\n- Yêu cầu spec: #1\n\n"
+            "### Task 2: Khác\n- File: x\n")
+
+    def test_row_joins_plan_run_and_conform(self):
+        write(self.root, "docs/napoleon/features/login/plan.md", self.PLAN)
+        write(self.root, "test/b_test.dart", "void main() {}\n")
+        self.commit("b")
+        self.st("task", "add", "login", "Form")
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        self.st("task", "done", "login", "1")
+        r =self.row(self.gen().split("## Test và bằng chứng")[1], "login#1")
+        self.assertIn("`submits valid form` trong `test/a_test.dart`", r)
+        self.assertIn("test/a_test.dart", r.split("|")[3])
+        self.assertIn("pass", r)
+
+    def test_failed_run_of_open_task_is_shown(self):
+        self.toolchain({"test": "exit 1", "test_one": "exit 1", "test_files": ["test/**"]})
+        self.st("task", "add", "login", "Form")
+        write(self.root, "lib/a.dart", "class A { int x = 1; }\n")
+        self.st("task", "done", "login", "1")
+        self.assertIn("FAIL", self.row(self.gen().split("## Test và bằng chứng")[1], "login#1"))
+
+    def test_task_never_run_is_not_listed(self):
+        self.st("task", "add", "login", "Form")
+        self.assertNotIn("login#1", self.gen().split("## Test và bằng chứng")[1].split("\n## ")[0])
+
+    def test_missing_plan_gives_dash(self):
+        self.st("task", "add", "login", "Form"); self.st("task", "done", "login", "1", "--skip-conform")
+        self.assertEqual(self.row(self.gen().split("## Test và bằng chứng")[1], "login#1").split("|")[2].strip(), "—")
+
+    def test_verify_line(self):
+        write(self.root, "docs/napoleon/features/login/verify.md",
+              "## Máy\n- [x] a\n- [x] b\n## Verifier\n- [ ] c\n## Người\n- [ ] UI\n- [ ] UI2\n")
+        self.st("verify", "login", "fail", "--issue", "null-state"); self.st("verify", "login", "pass")
+        self.assertIn("login — verify lần 1 fail (null-state), lần 2 pass · máy+verifier 2/3 · người chờ 2", self.gen())
+
+
 if __name__ == "__main__":
     unittest.main()
